@@ -25,7 +25,11 @@ def test_enhance_uses_github_models_and_validates_structured_response() -> None:
         assert request.headers["authorization"] == "Bearer temporary-token"
         payload = json.loads(request.content)
         assert payload["model"] == "microsoft/phi-4-mini-instruct"
-        assert payload["response_format"] == {"type": "json_object"}
+        assert payload["response_format"]["type"] == "json_schema"
+        assert payload["response_format"]["json_schema"]["schema"]["required"] == [
+            "summary",
+            "importance",
+        ]
         assert "Reference text" in payload["messages"][1]["content"]
         return httpx.Response(
             200,
