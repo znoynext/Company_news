@@ -1,12 +1,12 @@
 {
   "schema_version": 6,
-  "last_successful_check": "2026-07-13T22:05:22.977120Z",
+  "last_successful_check": "2026-07-13T23:11:00.552039Z",
   "last_daily_summary_date": null,
   "last_weekly_health_report_date": null,
   "workflow_alert_sent": false,
   "ai_failure_alert_sent": false,
   "ai_last_error": null,
-  "last_run_duration_seconds": 52.734800355999994,
+  "last_run_duration_seconds": 47.043940302,
   "last_run_new_publications": 1,
   "last_run_telegram_messages": 1,
   "last_run_errors": 5,
@@ -314,88 +314,104 @@
       "category": "financial_report",
       "importance": "medium",
       "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:adf9945a8f5606813a53dbf0588818645c3627463a09a0edd0310bad1a6d2b85",
+      "company": "ПАО «Корпоративный центр ИКС 5»",
+      "title": "Все результаты",
+      "url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "published_at": "2026-07-13T23:11:08.869729Z",
+      "sent_at": "2026-07-13T23:11:00.552039Z",
+      "source_id": "x5-official-news",
+      "publication_id": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "source_url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "fingerprint": "sha256:adf9945a8f5606813a53dbf0588818645c3627463a09a0edd0310bad1a6d2b85",
+      "telegram_message_status": "sent",
+      "category": "financial_report",
+      "importance": "medium",
+      "dividend_status": null
     }
   ],
   "financial_reports": [],
   "source_status": {
     "local-fixture": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T22:05:22.977120Z",
+      "last_successful_check": "2026-07-13T23:11:00.552039Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "moex-investor-relations-rss": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T22:05:22.977120Z",
+      "last_successful_check": "2026-07-13T23:11:00.552039Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "rosseti-lenenergo-press": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "error",
       "error": "Temporary network error for https://rosseti-lenenergo.ru/press/",
       "last_successful_check": null,
-      "consecutive_errors": 5,
+      "consecutive_errors": 6,
       "failure_alert_sent": true
     },
     "lukoil-official-news": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T22:05:22.977120Z",
+      "last_successful_check": "2026-07-13T23:11:00.552039Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "x5-official-news": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T22:05:22.977120Z",
+      "last_successful_check": "2026-07-13T23:11:00.552039Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "headhunter-official-news": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T22:05:22.977120Z",
+      "last_successful_check": "2026-07-13T23:11:00.552039Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "interrao-official-news": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "error",
       "error": "Temporary network error for https://www.interrao.ru/press-center/news/",
       "last_successful_check": null,
-      "consecutive_errors": 5,
+      "consecutive_errors": 6,
       "failure_alert_sent": true
     },
     "transneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 5,
+      "consecutive_errors": 6,
       "failure_alert_sent": true
     },
     "tatneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 5,
+      "consecutive_errors": 6,
       "failure_alert_sent": true
     },
     "nmtp-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T22:05:22.977120Z",
+      "last_checked_at": "2026-07-13T23:11:00.552039Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 5,
+      "consecutive_errors": 6,
       "failure_alert_sent": true
     }
   },
@@ -409,6 +425,11 @@
       "summary": "ПАО «Корпоративный центр ИКС 5» опубликовало финансовые и операционные результаты за первый квартал 2026 года, включая пресс-релизы и краткие обзоры для частных инвесторов.",
       "importance": "medium",
       "created_at": "2026-07-13T22:05:22.977120Z"
+    },
+    "openai/gpt-4o:1:1:sha256:adf9945a8f5606813a53dbf0588818645c3627463a09a0edd0310bad1a6d2b85": {
+      "summary": "ПАО «Корпоративный центр ИКС 5» опубликовало финансовые и операционные результаты за первый квартал 2026 года, включая пресс-релизы и краткие обзоры для частных инвесторов.",
+      "importance": "medium",
+      "created_at": "2026-07-13T23:11:00.552039Z"
     }
   }
 }
