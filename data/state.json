@@ -1,13 +1,13 @@
 {
   "schema_version": 3,
-  "last_successful_check": "2026-07-13T18:02:38.956421Z",
+  "last_successful_check": "2026-07-13T18:11:01.323126Z",
   "last_daily_summary_date": null,
   "last_weekly_health_report_date": null,
   "workflow_alert_sent": false,
-  "last_run_duration_seconds": 111.55626844999998,
-  "last_run_new_publications": 10,
-  "last_run_telegram_messages": 10,
-  "last_run_errors": 7,
+  "last_run_duration_seconds": 49.42197277799999,
+  "last_run_new_publications": 3,
+  "last_run_telegram_messages": 3,
+  "last_run_errors": 5,
   "sent_items": [
     {
       "deduplication_id": "sha256:8af03881883e1fd4fcfde44cf9e36d83ba90aedc701e8bf3536b78835f337ef2",
@@ -216,88 +216,136 @@
       "category": "news",
       "importance": "medium",
       "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:3c81f0b3e858713796eb9fae83dee49656bb5823e3031ee834be38d4d1a35aae",
+      "company": "ПАО «Московская биржа»",
+      "title": "Moscow Exchange Trading Volumes in June 2026",
+      "url": "https://www.moex.com/n101694",
+      "published_at": "2026-07-01T14:32:13Z",
+      "sent_at": "2026-07-13T18:11:01.323126Z",
+      "source_id": "moex-investor-relations-rss",
+      "publication_id": "https://www.moex.com/n101694:MOEX",
+      "source_url": "https://www.moex.com/n101694",
+      "fingerprint": "sha256:3c81f0b3e858713796eb9fae83dee49656bb5823e3031ee834be38d4d1a35aae",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:397bb2261641267748fafabbd1463a4f3ed71bab10e136b6627425764cf02c5f",
+      "company": "ПАО «Московская биржа»",
+      "title": "Moscow Exchange Trading Volumes in May 2026",
+      "url": "https://www.moex.com/n100591",
+      "published_at": "2026-06-01T14:31:36Z",
+      "sent_at": "2026-07-13T18:11:01.323126Z",
+      "source_id": "moex-investor-relations-rss",
+      "publication_id": "https://www.moex.com/n100591:MOEX",
+      "source_url": "https://www.moex.com/n100591",
+      "fingerprint": "sha256:397bb2261641267748fafabbd1463a4f3ed71bab10e136b6627425764cf02c5f",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:6ab682d1a4889b843c18c49726984fbed8e618f4c22fc92907b6aff79f67474a",
+      "company": "ПАО «Корпоративный центр ИКС 5»",
+      "title": "Все результаты",
+      "url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "published_at": "2026-07-13T18:11:11.703227Z",
+      "sent_at": "2026-07-13T18:11:01.323126Z",
+      "source_id": "x5-official-news",
+      "publication_id": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "source_url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "fingerprint": "sha256:6ab682d1a4889b843c18c49726984fbed8e618f4c22fc92907b6aff79f67474a",
+      "telegram_message_status": "sent",
+      "category": "financial_report",
+      "importance": "medium",
+      "dividend_status": null
     }
   ],
   "financial_reports": [],
   "source_status": {
     "local-fixture": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "last_successful_check": "2026-07-13T18:11:01.323126Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "moex-investor-relations-rss": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
-      "status": "error",
-      "error": "Temporary network error for https://www.moex.com/export/news.aspx?cat=207",
-      "last_successful_check": null,
-      "consecutive_errors": 1,
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "status": "ok",
+      "error": null,
+      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "rosseti-lenenergo-press": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "error",
       "error": "Temporary network error for https://rosseti-lenenergo.ru/press/",
       "last_successful_check": null,
-      "consecutive_errors": 1,
+      "consecutive_errors": 2,
       "failure_alert_sent": false
     },
     "lukoil-official-news": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "last_successful_check": "2026-07-13T18:11:01.323126Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "x5-official-news": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
-      "status": "error",
-      "error": "Temporary network error for https://x5.ru/ru/investors/",
-      "last_successful_check": null,
-      "consecutive_errors": 1,
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "status": "ok",
+      "error": null,
+      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "headhunter-official-news": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "last_successful_check": "2026-07-13T18:11:01.323126Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "interrao-official-news": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "error",
       "error": "Temporary network error for https://www.interrao.ru/press-center/news/",
       "last_successful_check": null,
-      "consecutive_errors": 1,
+      "consecutive_errors": 2,
       "failure_alert_sent": false
     },
     "transneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 1,
+      "consecutive_errors": 2,
       "failure_alert_sent": false
     },
     "tatneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 1,
+      "consecutive_errors": 2,
       "failure_alert_sent": false
     },
     "nmtp-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "last_checked_at": "2026-07-13T18:11:01.323126Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 1,
+      "consecutive_errors": 2,
       "failure_alert_sent": false
     }
   }
