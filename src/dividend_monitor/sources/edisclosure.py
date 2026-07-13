@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from bs4 import BeautifulSoup
 from pydantic import HttpUrl
 
+from ..financial_reports import detect_report_context, extract_structured_metrics
 from ..models import Company, Publication, SourceConfig
 from .base import Source, source_http_client
 from .parsing import normalize_url, parse_date
@@ -44,6 +45,9 @@ class EdisclosureReportsSource(Source):
             seen_urls.add(url)
             date_match = re.search(r"\d{1,2}[./]\d{1,2}[./]\d{4}", text)
             title = re.sub(r"\s+", " ", link.get_text(" ", strip=True)) or "Отчёт эмитента"
+            report_period, period_kind, report_standard = detect_report_context(text)
+            report_url = HttpUrl(url)
+            metrics = extract_structured_metrics(str(row), report_url)
             publications.append(
                 Publication(
                     source_id=self.config.id,
@@ -53,11 +57,15 @@ class EdisclosureReportsSource(Source):
                     title=title,
                     description=text,
                     published_at=parse_date(date_match.group(0), discovered_at),
-                    url=HttpUrl(url),
+                    url=report_url,
                     external_id=url,
                     discovered_at=discovered_at,
                     source_type="official_html",
                     reliability="medium",
+                    report_period=report_period,
+                    report_period_kind=period_kind,
+                    report_standard=report_standard,
+                    report_metrics=metrics,
                 )
             )
         return publications

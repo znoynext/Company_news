@@ -4,12 +4,15 @@ import argparse
 import html
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
 from . import __version__
+from .calculations import calculate_comparisons
 from .config import load_companies, load_sources
 from .deduplication import is_new, mark_sent
+from .financial_reports import detect_report_context
 from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
 from .sources.base import FixtureSource, Source
 from .sources.edisclosure import EdisclosureReportsSource
@@ -50,6 +53,122 @@ def _escape(text: str, max_length: int) -> str:
     return html.escape(_shorten(text, lower), quote=True)
 
 
+_METRIC_LABELS = {
+    "revenue": "Выручка",
+    "operating_profit": "Операционная прибыль",
+    "ebitda": "EBITDA",
+    "net_profit": "Чистая прибыль",
+    "free_cash_flow": "Свободный денежный поток",
+    "net_debt": "Чистый долг",
+    "capital_expenditures": "Капитальные расходы",
+}
+
+
+def _format_report_details(publication: Publication) -> str:
+    if publication.category != "financial_report":
+        return ""
+    details: list[str] = []
+    if publication.report_period:
+        details.append(f"<b>Период:</b>\n{_escape(publication.report_period, 100)}")
+    if publication.report_standard:
+        details.append(f"<b>Стандарт:</b>\n{_escape(publication.report_standard, 100)}")
+    if not publication.report_metrics:
+        details.append(
+            "<b>Показатели:</b>\nПоказатели автоматически не извлечены. "
+            "Доступен официальный отчет по ссылке."
+        )
+    else:
+        lines = []
+        for metric in publication.report_metrics:
+            value = format(metric.value, "f").rstrip("0").rstrip(".") or "0"
+            lines.append(
+                f"• {_escape(_METRIC_LABELS[metric.name], 120)}: "
+                f"{_escape(value, 80)} {_escape(metric.currency, 40)} "
+                f"({_escape(metric.unit, 80)})"
+            )
+        details.append("<b>Показатели:</b>\n" + "\n".join(lines))
+    if publication.report_comparisons:
+        lines = []
+        for comparison in publication.report_comparisons:
+            if comparison.change_percent is None:
+                continue
+            percent = format(comparison.change_percent, ".2f")
+            kind = "год к году" if comparison.comparison_kind == "yoy" else "квартал к кварталу"
+            lines.append(f"• {_METRIC_LABELS[comparison.name]}: {percent}% ({kind})")
+        if lines:
+            details.append("<b>Изменение:</b>\n" + "\n".join(lines))
+    return "\n\n".join(details)
+
+
+def _report_with_comparisons(publication: Publication, state: MonitorState) -> Publication:
+    if (
+        publication.category != "financial_report"
+        or not publication.report_metrics
+        or not publication.report_period
+        or not publication.report_period_kind
+    ):
+        return publication
+    period_match = re.fullmatch(r"(\d{4}) (Q[1-4]|H1|9M|FY)", publication.report_period)
+    if not period_match:
+        return publication
+    year = int(period_match.group(1))
+    suffix = period_match.group(2)
+    previous_year_period = f"{year - 1} {suffix}"
+    history = [
+        report
+        for report in state.financial_reports
+        if report.ticker == publication.ticker
+        and report.report_standard == publication.report_standard
+    ]
+    previous_year = next(
+        (report for report in history if report.report_period == previous_year_period), None
+    )
+    previous_quarter = None
+    if publication.report_period_kind == "quarter":
+        quarter = int(suffix[1])
+        previous_suffix = f"Q{quarter - 1}" if quarter > 1 else "Q4"
+        previous_year_for_quarter = year if quarter > 1 else year - 1
+        previous_quarter_period = f"{previous_year_for_quarter} {previous_suffix}"
+        previous_quarter = next(
+            (report for report in history if report.report_period == previous_quarter_period), None
+        )
+    comparisons = calculate_comparisons(
+        publication.report_metrics,
+        previous_year.report_metrics if previous_year else [],
+        publication.report_period_kind,
+        previous_quarter.report_metrics if previous_quarter else None,
+    )
+    return publication.model_copy(update={"report_comparisons": comparisons})
+
+
+def _enrich_report_context(publication: Publication) -> Publication:
+    if publication.category != "financial_report":
+        return publication
+    period, period_kind, standard = detect_report_context(
+        f"{publication.title} {publication.description}"
+    )
+    updates = {}
+    if not publication.report_period:
+        updates["report_period"] = period
+    if not publication.report_period_kind:
+        updates["report_period_kind"] = period_kind
+    if not publication.report_standard:
+        updates["report_standard"] = standard
+    return publication.model_copy(update=updates) if updates else publication
+
+
+def _remember_report(publication: Publication, state: MonitorState) -> None:
+    if publication.category != "financial_report" or not publication.report_metrics:
+        return
+    state.financial_reports = [
+        report
+        for report in state.financial_reports
+        if report.external_id != publication.external_id
+    ]
+    state.financial_reports.append(publication)
+    state.financial_reports = state.financial_reports[-100:]
+
+
 def _build_source(config: SourceConfig, companies: dict[str, Company], root: Path) -> Source:
     if config.type == "fixture":
         return FixtureSource(config, companies, root)
@@ -77,7 +196,8 @@ def _build_source(config: SourceConfig, companies: dict[str, Company], root: Pat
 def format_message(publication: Publication) -> str:
     description = summarize(publication.description, max_length=500) or "Описание отсутствует."
     importance = _IMPORTANCE_LABELS[publication.importance]
-    return (
+    report_details = _format_report_details(publication)
+    message = (
         f"<b>📰 {_escape(publication.company, 150)} · "
         f"{_escape(publication.category, 100)}</b>\n\n"
         f"{_escape(publication.title, 900)}\n\n"
@@ -88,6 +208,12 @@ def format_message(publication: Publication) -> str:
         f"<b>Опубликовано:</b>\n"
         f"{publication.published_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}"
     )
+
+    if report_details:
+        candidate = f"{message}\n\n{report_details}"
+        if len(candidate) <= 4096:
+            message = candidate
+    return message
 
 
 def format_test_message(
@@ -129,12 +255,15 @@ def run(
         statistics.sources_checked += 1
         try:
             source = _build_source(source_config, companies, root)
-            for publication in source.fetch():
+            for raw_publication in source.fetch():
+                publication = _enrich_report_context(raw_publication)
                 if is_new(publication, state):
                     statistics.new_publications += 1
-                    telegram.send_message(format_message(publication))
+                    publication_to_send = _report_with_comparisons(publication, state)
+                    telegram.send_message(format_message(publication_to_send))
                     statistics.sent += 1
                     mark_sent(publication, state, checked_at)
+                    _remember_report(publication, state)
                 else:
                     statistics.duplicates += 1
             statistics.successful += 1
