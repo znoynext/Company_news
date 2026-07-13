@@ -1,6 +1,7 @@
 """CLI and orchestration for one complete monitor run."""
 
 import argparse
+import html
 import logging
 import os
 from datetime import UTC, datetime
@@ -20,6 +21,32 @@ from .telegram import TelegramClient, TelegramConfigurationError
 
 LOGGER = logging.getLogger(__name__)
 
+_IMPORTANCE_LABELS = {
+    "high": "🔴 высокая",
+    "medium": "🟡 средняя",
+    "low": "⚪ низкая",
+}
+
+
+def _shorten(text: str, max_length: int) -> str:
+    """Shorten plain text without leaving a broken HTML entity behind."""
+    if len(text) <= max_length:
+        return text
+    shortened = text[: max_length - 1].rsplit(" ", 1)[0].rstrip()
+    return f"{shortened}…"
+
+
+def _escape(text: str, max_length: int) -> str:
+    lower, upper = 0, len(text)
+    while lower < upper:
+        candidate_length = (lower + upper + 1) // 2
+        candidate = _shorten(text, candidate_length)
+        if len(html.escape(candidate, quote=True)) <= max_length:
+            lower = candidate_length
+        else:
+            upper = candidate_length - 1
+    return html.escape(_shorten(text, lower), quote=True)
+
 
 def _build_source(config: SourceConfig, companies: dict[str, Company], root: Path) -> Source:
     if config.type == "fixture":
@@ -37,16 +64,18 @@ def _build_source(config: SourceConfig, companies: dict[str, Company], root: Pat
 
 
 def format_message(publication: Publication) -> str:
-    description = summarize(publication.description) or "Описание отсутствует."
-    url = str(publication.url) if publication.url else "Ссылка отсутствует."
+    description = summarize(publication.description, max_length=500) or "Описание отсутствует."
+    importance = _IMPORTANCE_LABELS[publication.importance]
     return (
-        f"{publication.company} ({publication.ticker})\n"
-        f"Категория: {publication.category}\n"
-        f"Важность: {publication.importance}\n\n"
-        f"{publication.title}\n\n"
-        f"{description}\n\n"
-        f"Дата: {publication.published_at.isoformat()}\n"
-        f"Источник: {url}"
+        f"<b>📰 {_escape(publication.company, 150)} · "
+        f"{_escape(publication.category, 100)}</b>\n\n"
+        f"{_escape(publication.title, 900)}\n\n"
+        f"<b>Кратко:</b>\n{_escape(description, 1200)}\n\n"
+        f"<b>Важность:</b>\n{importance}\n\n"
+        f"<b>Источник:</b>\n"
+        f"{_escape(str(publication.url) if publication.url else 'Ссылка отсутствует.', 800)}\n\n"
+        f"<b>Опубликовано:</b>\n"
+        f"{publication.published_at.astimezone(UTC).strftime('%Y-%m-%d %H:%M UTC')}"
     )
 
 

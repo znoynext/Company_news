@@ -42,8 +42,15 @@ class TelegramClient:
         return cls(token, chat_id)
 
     def send_message(self, text: str) -> None:
+        if len(text) > 4096:
+            raise ValueError("Telegram message exceeds the 4096-character limit")
         endpoint = f"https://api.telegram.org/bot{self._token}/sendMessage"
-        payload = {"chat_id": self._chat_id, "text": text, "disable_web_page_preview": True}
+        payload = {
+            "chat_id": self._chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
         for attempt in range(self._max_retries + 1):
             try:
                 response = self._client.post(endpoint, json=payload)
