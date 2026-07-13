@@ -13,7 +13,7 @@ from .models import Importance, Publication
 from .summarizer import summarize
 
 _ENDPOINT = "https://models.github.ai/inference/chat/completions"
-_DEFAULT_MODEL = "microsoft/phi-4-mini-instruct"
+_DEFAULT_MODEL = "openai/gpt-4o"
 _MAX_SOURCE_TEXT = 3_500
 _JSON_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL | re.IGNORECASE)
 _RESPONSE_FORMAT = {

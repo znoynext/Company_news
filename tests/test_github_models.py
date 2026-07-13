@@ -24,7 +24,7 @@ def test_enhance_uses_github_models_and_validates_structured_response() -> None:
         assert str(request.url) == "https://models.github.ai/inference/chat/completions"
         assert request.headers["authorization"] == "Bearer temporary-token"
         payload = json.loads(request.content)
-        assert payload["model"] == "microsoft/phi-4-mini-instruct"
+        assert payload["model"] == "openai/gpt-4o"
         assert payload["response_format"]["type"] == "json_schema"
         assert payload["response_format"]["json_schema"]["schema"]["required"] == [
             "summary",
