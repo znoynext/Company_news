@@ -11,6 +11,11 @@ on:
         required: false
         default: false
         type: boolean
+      send_existing_item:
+        description: "Send the latest saved publication as a Telegram test"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: dividend-monitor
@@ -44,11 +49,14 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEND_TEST_MESSAGE: ${{ inputs.send_test_message || false }}
+          SEND_EXISTING_ITEM: ${{ inputs.send_existing_item || false }}
           WORKFLOW_NAME: ${{ github.workflow }}
         shell: bash
         run: |
           args=()
-          if [ "$SEND_TEST_MESSAGE" = "true" ]; then
+          if [ "$SEND_EXISTING_ITEM" = "true" ]; then
+            args+=(--send-existing-item)
+          elif [ "$SEND_TEST_MESSAGE" = "true" ]; then
             args+=(--send-test-message --workflow-name "$WORKFLOW_NAME")
           fi
           set -o pipefail

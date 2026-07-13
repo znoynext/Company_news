@@ -23,6 +23,7 @@ from .models import (
     MonitorState,
     Publication,
     RunStatistics,
+    SentItem,
     SourceConfig,
     SourceStatus,
 )
@@ -349,6 +350,50 @@ def format_test_message(
     )
 
 
+def format_saved_item_test(item: SentItem) -> str:
+    """Format a saved publication for a manual Telegram preview."""
+    category_labels = {
+        "news": "корпоративная новость",
+        "corporate": "корпоративное событие",
+        "dividend": "дивиденды",
+        "financial_report": "финансовый отчёт",
+    }
+    importance_labels = {
+        "high": "🔴 высокая",
+        "medium": "🟡 средняя",
+        "low": "🟢 низкая",
+    }
+    published_at = item.published_at
+    if published_at.tzinfo is None:
+        published_at = published_at.replace(tzinfo=UTC)
+    published_text = published_at.astimezone(UTC).strftime("%d.%m.%Y %H:%M UTC")
+    source_url = item.source_url or item.url or "Ссылка отсутствует."
+    category = category_labels.get(item.category, item.category)
+
+    if item.category == "dividend":
+        status = _DIVIDEND_STATUS_LABELS.get(item.dividend_status or "", "не указан")
+        return (
+            f"<b>🧪 ТЕСТ: сохранённая публикация</b>\n\n"
+            f"<b>💰 {_escape(item.company, 150)} — дивиденды</b>\n\n"
+            f"<b>Статус:</b>\n{_escape(status, 100)}\n\n"
+            f"<b>Размер:</b>\nсохранённая запись не содержит размера выплаты\n\n"
+            f"<b>Период:</b>\nсохранённая запись не содержит периода\n\n"
+            f"<b>Дата закрытия реестра:</b>\nбудет уточнена\n\n"
+            f"<b>Источник:</b>\n{_escape(source_url, 800)}\n\n"
+            f"<b>Опубликовано:</b>\n{published_text}"
+        )
+
+    return (
+        f"<b>🧪 ТЕСТ: сохранённая публикация</b>\n\n"
+        f"<b>📰 {_escape(item.company, 150)} · {_escape(category, 100)}</b>\n\n"
+        f"{_escape(item.title, 900)}\n\n"
+        f"<b>Кратко:</b>\nЭто тестовая повторная отправка сохранённой публикации.\n\n"
+        f"<b>Важность:</b>\n{importance_labels.get(item.importance, item.importance)}\n\n"
+        f"<b>Источник:</b>\n{_escape(source_url, 800)}\n\n"
+        f"<b>Опубликовано:</b>\n{published_text}"
+    )
+
+
 def run(
     root: Path,
     telegram: TelegramClient,
@@ -358,13 +403,27 @@ def run(
     send_test_message: bool = False,
     workflow_name: str = "Dividend monitor",
     run_statistics: RunStatistics | None = None,
+    send_existing_item: bool = False,
 ) -> MonitorState:
     started_at = time.perf_counter()
+    state_storage = JsonStateStorage(root / state_path)
+    state = state_storage.load()
+    if send_existing_item:
+        if not state.sent_items:
+            raise ValueError("No previously sent publications are saved in state.json")
+        item = max(state.sent_items, key=lambda saved_item: saved_item.sent_at)
+        telegram.send_message(format_saved_item_test(item))
+        duration_seconds = time.perf_counter() - started_at
+        print(f"Duration: {duration_seconds:.2f}s")
+        print("Sources: 0")
+        print("New publications: 0")
+        print("Telegram messages: 1")
+        print("Errors: 0")
+        return state
+
     companies_config = load_companies(root / companies_path)
     sources_config = load_sources(root / sources_path)
     companies = {company.ticker: company for company in companies_config.companies}
-    state_storage = JsonStateStorage(root / state_path)
-    state = state_storage.load()
     checked_at = datetime.now(UTC)
     cleanup_old_state(state, checked_at)
     statistics = run_statistics or RunStatistics()
@@ -494,6 +553,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run one dividend monitor check")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--send-test-message", action="store_true")
+    parser.add_argument("--send-existing-item", action="store_true")
     parser.add_argument(
         "--workflow-name", default=os.getenv("GITHUB_WORKFLOW", "Dividend monitor")
     )
@@ -507,6 +567,7 @@ def main() -> int:
         args.root,
         telegram,
         send_test_message=args.send_test_message,
+        send_existing_item=args.send_existing_item,
         workflow_name=args.workflow_name,
     )
     return 0

@@ -2,8 +2,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import dividend_monitor.runner as runner_module
-from dividend_monitor.models import Publication, RunStatistics, SourceConfig, SourcesConfig
-from dividend_monitor.runner import format_message, format_test_message, run
+from dividend_monitor.models import (
+    MonitorState,
+    Publication,
+    RunStatistics,
+    SentItem,
+    SourceConfig,
+    SourcesConfig,
+)
+from dividend_monitor.runner import format_message, format_saved_item_test, format_test_message, run
+from dividend_monitor.storage import JsonStateStorage
 
 
 class FakeTelegram:
@@ -123,6 +131,84 @@ def test_test_message_escapes_workflow_name() -> None:
 
     assert "Workflow: &lt;unsafe&gt; &amp; workflow" in message
     assert "<unsafe>" not in message
+
+
+def test_saved_item_test_message_uses_saved_fields_and_escapes_external_text() -> None:
+    message = format_saved_item_test(
+        SentItem(
+            deduplication_id="fingerprint",
+            company="A&B <Corp>",
+            title="<Previously sent> & title",
+            url="https://example.com/news?a=1&b=2",
+            source_url="https://example.com/news?a=1&b=2",
+            published_at=datetime(2026, 7, 13, 12, 30, tzinfo=UTC),
+            sent_at=datetime(2026, 7, 13, 12, 31, tzinfo=UTC),
+            category="news",
+            importance="high",
+        )
+    )
+
+    assert "🧪 ТЕСТ: сохранённая публикация" in message
+    assert "A&amp;B &lt;Corp&gt;" in message
+    assert "&lt;Previously sent&gt; &amp; title" in message
+    assert "https://example.com/news?a=1&amp;b=2" in message
+    assert "13.07.2026 12:30 UTC" in message
+    assert "<Previously sent>" not in message
+
+
+def test_runner_sends_latest_saved_item_without_fetching_or_changing_state(
+    tmp_path: Path, monkeypatch
+) -> None:
+    state_path = tmp_path / "state.json"
+    saved_state = JsonStateStorage(state_path)
+    saved_state.save(
+        MonitorState(
+            sent_items=[
+                SentItem(
+                    deduplication_id="old",
+                    company="Old",
+                    title="Old title",
+                    url="https://example.com/old",
+                    published_at=datetime(2026, 7, 12, tzinfo=UTC),
+                    sent_at=datetime(2026, 7, 12, tzinfo=UTC),
+                ),
+                SentItem(
+                    deduplication_id="new",
+                    company="New",
+                    title="Latest title",
+                    url="https://example.com/new",
+                    published_at=datetime(2026, 7, 13, tzinfo=UTC),
+                    sent_at=datetime(2026, 7, 13, tzinfo=UTC),
+                ),
+            ]
+        )
+    )
+    before = state_path.read_bytes()
+    telegram = FakeTelegram()
+
+    monkeypatch.setattr(
+        runner_module,
+        "load_companies",
+        lambda _: (_ for _ in ()).throw(AssertionError("configuration should not be loaded")),
+    )
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: (_ for _ in ()).throw(AssertionError("sources should not be loaded")),
+    )
+
+    state = run(
+        tmp_path,
+        telegram,
+        state_path=Path("state.json"),
+        send_existing_item=True,
+    )
+
+    assert len(telegram.messages) == 1
+    assert "Latest title" in telegram.messages[0]
+    assert "Old title" not in telegram.messages[0]
+    assert state.sent_items[-1].title == "Latest title"
+    assert state_path.read_bytes() == before
 
 
 def test_format_message_uses_requested_html_layout_and_escapes_external_text() -> None:
