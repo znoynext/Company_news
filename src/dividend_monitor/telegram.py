@@ -41,7 +41,7 @@ class TelegramClient:
             raise TelegramConfigurationError(f"Missing required environment variable(s): {joined}")
         return cls(token, chat_id)
 
-    def send_message(self, text: str) -> None:
+    def send_message(self, text: str) -> str:
         if len(text) > 4096:
             raise ValueError("Telegram message exceeds the 4096-character limit")
         endpoint = f"https://api.telegram.org/bot{self._token}/sendMessage"
@@ -62,7 +62,7 @@ class TelegramClient:
                 body: Any = response.json()
                 if not body.get("ok", False):
                     raise RuntimeError("Telegram API rejected the message")
-                return
+                return "sent"
             except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
                 if attempt >= self._max_retries:
                     raise

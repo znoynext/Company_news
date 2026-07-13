@@ -9,6 +9,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from .deduplication import cleanup_old_state
 from .models import MonitorState, SentItem
 from .storage import JsonStateStorage
 from .telegram import TelegramClient, TelegramConfigurationError
@@ -87,9 +88,11 @@ def send_daily_summary(
     storage = JsonStateStorage(root / state_path)
     state = storage.load()
     checked_at = (now or datetime.now(UTC)).astimezone(UTC)
+    cleanup_old_state(state, checked_at)
     message = build_daily_summary(state, checked_at)
     if message is None:
         LOGGER.info("Daily summary already sent for %s", checked_at.date())
+        storage.save(state)
         return False
     telegram.send_message(message)
     state.last_daily_summary_date = checked_at.date().isoformat()

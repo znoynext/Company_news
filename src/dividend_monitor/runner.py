@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__
 from .calculations import calculate_comparisons
 from .config import load_companies, load_sources
-from .deduplication import is_new, mark_sent
+from .deduplication import cleanup_old_state, is_new, mark_sent
 from .dividends import classify_dividend_event
 from .financial_reports import detect_report_context
 from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
@@ -357,6 +357,7 @@ def run(
     state_storage = JsonStateStorage(root / state_path)
     state = state_storage.load()
     checked_at = datetime.now(UTC)
+    cleanup_old_state(state, checked_at)
     statistics = run_statistics or RunStatistics()
 
     if send_test_message:
@@ -373,9 +374,9 @@ def run(
                 if is_new(publication, state):
                     statistics.new_publications += 1
                     publication_to_send = _report_with_comparisons(publication, state)
-                    telegram.send_message(format_message(publication_to_send))
+                    telegram_status = telegram.send_message(format_message(publication_to_send))
                     statistics.sent += 1
-                    mark_sent(publication, state, checked_at)
+                    mark_sent(publication, state, checked_at, telegram_status)
                     _remember_report(publication, state)
                 else:
                     statistics.duplicates += 1

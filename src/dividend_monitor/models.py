@@ -135,6 +135,11 @@ class SentItem(StrictModel):
     url: str | None
     published_at: datetime
     sent_at: datetime
+    source_id: str = "legacy"
+    publication_id: str | None = None
+    source_url: str | None = None
+    fingerprint: str | None = None
+    telegram_message_status: str = "sent"
     category: Category = "news"
     importance: Importance = "medium"
     dividend_status: DividendStatus | None = None
@@ -147,7 +152,7 @@ class SourceStatus(StrictModel):
 
 
 class MonitorState(StrictModel):
-    schema_version: int = 1
+    schema_version: int = 2
     last_successful_check: datetime | None = None
     last_daily_summary_date: str | None = None
     sent_items: list[SentItem] = Field(default_factory=list)
