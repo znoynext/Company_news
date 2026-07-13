@@ -1,13 +1,48 @@
 {
   "schema_version": 1,
-  "last_successful_check": "2026-07-13T15:49:27.086785Z",
+  "last_successful_check": "2026-07-13T16:13:34.345574Z",
   "last_daily_summary_date": null,
-  "sent_items": [],
+  "sent_items": [
+    {
+      "deduplication_id": "sha256:8af03881883e1fd4fcfde44cf9e36d83ba90aedc701e8bf3536b78835f337ef2",
+      "company": "Сбербанк",
+      "title": "Сбербанк опубликовал сообщение",
+      "url": "https://example.invalid/sberbank/fixture-001",
+      "published_at": "2026-07-13T12:00:00Z",
+      "sent_at": "2026-07-13T16:13:34.345574Z"
+    },
+    {
+      "deduplication_id": "sha256:2387f0cbc665dcb1adc9b6f6093552aac9a2c709b966a0e3cb318063a9af715d",
+      "company": "Московская биржа",
+      "title": "Moscow Exchange Trading Volumes in June 2026",
+      "url": "https://www.moex.com/n101694",
+      "published_at": "2026-07-01T14:32:13Z",
+      "sent_at": "2026-07-13T16:13:34.345574Z"
+    },
+    {
+      "deduplication_id": "sha256:93caf6794b757a0680ea4f93a021f484c66605597bb527db4dbff98d502c2cec",
+      "company": "Московская биржа",
+      "title": "Moscow Exchange Trading Volumes in May 2026",
+      "url": "https://www.moex.com/n100591",
+      "published_at": "2026-06-01T14:31:36Z",
+      "sent_at": "2026-07-13T16:13:34.345574Z"
+    }
+  ],
   "source_status": {
     "local-fixture": {
-      "last_checked_at": "2026-07-13T15:49:27.086785Z",
+      "last_checked_at": "2026-07-13T16:13:34.345574Z",
+      "status": "ok",
+      "error": null
+    },
+    "moex-investor-relations-rss": {
+      "last_checked_at": "2026-07-13T16:13:34.345574Z",
+      "status": "ok",
+      "error": null
+    },
+    "rosseti-lenenergo-press": {
+      "last_checked_at": "2026-07-13T16:13:34.345574Z",
       "status": "error",
-      "error": "Client error '400 Bad Request' for url 'https://api.telegram.org/bot8971249667:AAG-_TjhYGkRPwqDuMJG68uz1SrbtmT4v3o/sendMessage'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+      "error": "Temporary network error for https://rosseti-lenenergo.ru/press/"
     }
   }
 }
