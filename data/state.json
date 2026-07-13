@@ -1,7 +1,13 @@
 {
   "schema_version": 1,
-  "last_successful_check": null,
+  "last_successful_check": "2026-07-13T15:49:27.086785Z",
   "last_daily_summary_date": null,
   "sent_items": [],
-  "source_status": {}
+  "source_status": {
+    "local-fixture": {
+      "last_checked_at": "2026-07-13T15:49:27.086785Z",
+      "status": "error",
+      "error": "Client error '400 Bad Request' for url 'https://api.telegram.org/bot8971249667:AAG-_TjhYGkRPwqDuMJG68uz1SrbtmT4v3o/sendMessage'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+    }
+  }
 }
