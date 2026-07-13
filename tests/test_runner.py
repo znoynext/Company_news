@@ -114,6 +114,17 @@ def test_test_message_contains_connection_details_without_token() -> None:
     assert "TELEGRAM_BOT_TOKEN" not in message
 
 
+def test_test_message_escapes_workflow_name() -> None:
+    message = format_test_message(
+        "0.1.0",
+        "<unsafe> & workflow",
+        datetime(2026, 7, 13, 12, 30, tzinfo=UTC),
+    )
+
+    assert "Workflow: &lt;unsafe&gt; &amp; workflow" in message
+    assert "<unsafe>" not in message
+
+
 def test_format_message_uses_requested_html_layout_and_escapes_external_text() -> None:
     publication = Publication(
         source_id="fixture",

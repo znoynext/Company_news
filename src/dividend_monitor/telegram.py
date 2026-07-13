@@ -11,6 +11,10 @@ class TelegramConfigurationError(ValueError):
     """Raised when required Telegram environment variables are missing."""
 
 
+class TelegramDeliveryError(RuntimeError):
+    """Raised without exposing the secret-bearing Telegram request URL."""
+
+
 class TelegramClient:
     def __init__(
         self,
@@ -65,6 +69,8 @@ class TelegramClient:
                 return "sent"
             except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
                 if attempt >= self._max_retries:
-                    raise
+                    raise TelegramDeliveryError("Telegram API request failed") from None
                 time.sleep(min(2**attempt, 4))
+            except httpx.HTTPError:
+                raise TelegramDeliveryError("Telegram API request failed") from None
         raise RuntimeError("Telegram message was not sent")

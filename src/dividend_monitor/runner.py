@@ -344,8 +344,8 @@ def format_test_message(
     return (
         "✅ Dividend Monitor успешно подключен к Telegram.\n\n"
         f"Время UTC: {current_time}\n"
-        f"Версия приложения: {app_version}\n"
-        f"Workflow: {workflow_name}"
+        f"Версия приложения: {_escape(app_version, 100)}\n"
+        f"Workflow: {_escape(workflow_name, 200)}"
     )
 
 
