@@ -76,6 +76,28 @@ def test_enhance_batch_ignores_unknown_and_duplicate_ids() -> None:
     assert enhanced[fingerprint(publication)].ai_summary == "Корректно."
 
 
+def test_enhance_batch_rejects_numeric_claim_with_unsupported_unit() -> None:
+    publication = _publication()
+    client = GitHubModelsClient(
+        "temporary-token",
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _: _response(
+                    [
+                        {
+                            "id": fingerprint(publication),
+                            "summary": "Компания получила 15 рублей на акцию.",
+                            "importance": "high",
+                        }
+                    ]
+                )
+            )
+        ),
+    )
+
+    assert client.enhance_batch([publication]) == {}
+
+
 @pytest.mark.parametrize("status_code", [400, 401, 403, 404])
 def test_enhance_fails_closed_for_permanent_http_errors(status_code: int) -> None:
     client = GitHubModelsClient(

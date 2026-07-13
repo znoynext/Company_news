@@ -24,6 +24,10 @@ _MAX_SOURCE_TEXT = 1_000
 _PROMPT_VERSION = "1"
 _SCHEMA_VERSION = "1"
 _JSON_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL | re.IGNORECASE)
+_NUMERIC_CLAIM = re.compile(
+    r"(?P<number>\d+(?:[.,]\d+)?)\s*(?P<unit>руб(?:лей|ля|ль)?|процент(?:а|ов)?|%|млн|млрд)?",
+    re.IGNORECASE,
+)
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 _RESPONSE_FORMAT = {
     "type": "json_schema",
@@ -187,7 +191,7 @@ class GitHubModelsClient:
             if publication is None or result.id in enhanced:
                 continue
             summary = summarize(result.summary, max_length=500)
-            if summary:
+            if summary and _summary_is_grounded(summary, publication):
                 enhanced[result.id] = publication.model_copy(
                     update={"ai_summary": summary, "importance": result.importance}
                 )
@@ -291,6 +295,33 @@ def _retry_delay(response: httpx.Response, attempt: int) -> float:
         return min(max(float(response.headers.get("Retry-After", "")), 0.0), 30.0)
     except ValueError:
         return float(2**attempt)
+
+
+def _summary_is_grounded(summary: str, publication: Publication) -> bool:
+    """Reject numeric claims whose unit is absent from the source material."""
+    source = f"{publication.title} {publication.description}".casefold()
+    source_numbers = {
+        (match.group("number").replace(",", "."), _claim_unit(match.group("unit")))
+        for match in _NUMERIC_CLAIM.finditer(source)
+        if match.group("unit")
+    }
+    for match in _NUMERIC_CLAIM.finditer(summary):
+        unit = match.group("unit")
+        claim = (match.group("number").replace(",", "."), _claim_unit(unit))
+        if unit and claim not in source_numbers:
+            return False
+    return True
+
+
+def _claim_unit(unit: str | None) -> str:
+    if not unit:
+        return ""
+    normalized = unit.casefold()
+    if normalized.startswith("руб"):
+        return "currency"
+    if normalized.startswith("процент") or normalized == "%":
+        return "percent"
+    return normalized
 
 
 def _json_content(content: str) -> str:
