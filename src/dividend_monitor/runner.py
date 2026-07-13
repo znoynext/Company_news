@@ -15,11 +15,18 @@ from pathlib import Path
 from . import __version__
 from .calculations import calculate_comparisons
 from .config import load_companies, load_sources
-from .deduplication import cleanup_old_state, is_new, mark_sent
+from .deduplication import cleanup_old_state, fingerprint, is_new, mark_sent
 from .dividends import classify_dividend_event
 from .financial_reports import detect_report_context
-from .github_models import GitHubModelsClient, GitHubModelsUnavailable
+from .github_models import (
+    FakeAIClient,
+    GitHubModelsClient,
+    GitHubModelsUnavailable,
+    client_from_environment,
+    filter_from_environment,
+)
 from .models import (
+    AiCacheEntry,
     Company,
     MonitorState,
     Publication,
@@ -40,11 +47,20 @@ from .telegram import TelegramClient, TelegramConfigurationError
 
 LOGGER = logging.getLogger(__name__)
 
+
+class DryRunTelegram:
+    """Delivery replacement that never contacts Telegram or writes credentials."""
+
+    def send_message(self, message: str) -> str:
+        LOGGER.info("Dry run prepared a Telegram message (%s characters)", len(message))
+        return "dry-run"
+
 _IMPORTANCE_LABELS = {
     "high": "🔴 высокая",
     "medium": "🟡 средняя",
     "low": "⚪ низкая",
 }
+_IMPORTANCE_RANK = {"low": 0, "medium": 1, "high": 2}
 
 
 def _shorten(text: str, max_length: int) -> str:
@@ -396,6 +412,66 @@ def format_saved_item_test(item: SentItem) -> str:
     )
 
 
+def _enhance_new_publications(
+    publications: list[Publication],
+    state: MonitorState,
+    ai_client: GitHubModelsClient | FakeAIClient | object | None,
+    checked_at: datetime,
+) -> tuple[list[Publication], GitHubModelsClient | FakeAIClient | object | None]:
+    """Use cache first, then enrich bounded batches without blocking delivery."""
+    if ai_client is None or not publications:
+        return publications, ai_client
+
+    cache_key = getattr(ai_client, "cache_key", None)
+    batch_size = getattr(ai_client, "batch_size", 1)
+    enhance_batch = getattr(ai_client, "enhance_batch", None)
+    if not callable(cache_key) or not callable(enhance_batch) or not isinstance(batch_size, int):
+        # Compatibility with small test doubles and legacy providers.
+        enhance_one = getattr(ai_client, "enhance", None)
+        if not callable(enhance_one):
+            return publications, None
+        try:
+            return [enhance_one(publication) for publication in publications], ai_client
+        except GitHubModelsUnavailable as exc:
+            LOGGER.warning("GitHub Models disabled for this run: %s", exc)
+            return publications, None
+
+    enhanced_by_id: dict[str, Publication] = {}
+    pending: list[Publication] = []
+    keys: dict[str, str] = {}
+    for publication in publications:
+        key = cache_key(publication)
+        cached = state.ai_cache.get(key)
+        publication_id = fingerprint(publication)
+        if cached is None:
+            pending.append(publication)
+            keys[publication_id] = key
+        else:
+            enhanced_by_id[publication_id] = publication.model_copy(
+                update={"ai_summary": cached.summary, "importance": cached.importance}
+            )
+
+    for offset in range(0, len(pending), batch_size):
+        batch = pending[offset : offset + batch_size]
+        try:
+            results = enhance_batch(batch)
+        except GitHubModelsUnavailable as exc:
+            LOGGER.warning("GitHub Models disabled for this run: %s", exc)
+            return [enhanced_by_id.get(fingerprint(item), item) for item in publications], None
+        for publication in batch:
+            publication_id = fingerprint(publication)
+            result = results.get(publication_id)
+            if result is None:
+                continue
+            enhanced_by_id[publication_id] = result
+            state.ai_cache[keys[publication_id]] = AiCacheEntry(
+                summary=result.ai_summary or result.description,
+                importance=result.importance,
+                created_at=checked_at,
+            )
+    return [enhanced_by_id.get(fingerprint(item), item) for item in publications], ai_client
+
+
 def run(
     root: Path,
     telegram: TelegramClient,
@@ -406,7 +482,10 @@ def run(
     workflow_name: str = "Dividend monitor",
     run_statistics: RunStatistics | None = None,
     send_existing_item: bool = False,
-    ai_client: GitHubModelsClient | None = None,
+    ai_client: GitHubModelsClient | FakeAIClient | object | None = None,
+    dry_run: bool = False,
+    ai_filter_enabled: bool = False,
+    ai_min_importance: str = "low",
 ) -> MonitorState:
     started_at = time.perf_counter()
     state_storage = JsonStateStorage(root / state_path)
@@ -415,12 +494,15 @@ def run(
         if not state.sent_items:
             raise ValueError("No previously sent publications are saved in state.json")
         item = max(state.sent_items, key=lambda saved_item: saved_item.sent_at)
-        telegram.send_message(format_saved_item_test(item))
+        if dry_run:
+            LOGGER.info("Dry run prepared a saved publication preview")
+        else:
+            telegram.send_message(format_saved_item_test(item))
         duration_seconds = time.perf_counter() - started_at
         print(f"Duration: {duration_seconds:.2f}s")
         print("Sources: 0")
         print("New publications: 0")
-        print("Telegram messages: 1")
+        print(f"Telegram messages: {0 if dry_run else 1}")
         print("Errors: 0")
         return state
 
@@ -432,7 +514,7 @@ def run(
     statistics = run_statistics or RunStatistics()
     telegram_messages = 0
 
-    if send_test_message:
+    if send_test_message and not dry_run:
         telegram.send_message(format_test_message(__version__, workflow_name, checked_at))
         telegram_messages += 1
 
@@ -442,24 +524,40 @@ def run(
         statistics.sources_checked += 1
         try:
             source = _build_source(source_config, companies, root)
+            new_publications: list[Publication] = []
             for raw_publication in source.fetch():
                 publication = _enrich_report_context(raw_publication)
                 if is_new(publication, state):
                     statistics.new_publications += 1
-                    publication_to_send = _report_with_comparisons(publication, state)
-                    if ai_client is not None:
-                        try:
-                            publication_to_send = ai_client.enhance(publication_to_send)
-                        except GitHubModelsUnavailable as exc:
-                            # AI is optional: stop spending requests for this run and deliver as usual.
-                            LOGGER.warning("GitHub Models disabled for this run: %s", exc)
-                            ai_client = None
-                    telegram_status = telegram.send_message(format_message(publication_to_send))
-                    statistics.sent += 1
-                    mark_sent(publication_to_send, state, checked_at, telegram_status)
-                    _remember_report(publication_to_send, state)
+                    new_publications.append(_report_with_comparisons(publication, state))
                 else:
                     statistics.duplicates += 1
+            new_publications, ai_client = _enhance_new_publications(
+                new_publications, state, ai_client, checked_at
+            )
+            for publication_to_send in new_publications:
+                if (
+                    ai_filter_enabled
+                    and publication_to_send.ai_summary is not None
+                    and _IMPORTANCE_RANK[publication_to_send.importance]
+                    < _IMPORTANCE_RANK[ai_min_importance]
+                ):
+                    LOGGER.info("AI filter skipped a low-priority publication for %s", publication_to_send.ticker)
+                    mark_sent(publication_to_send, state, checked_at, "filtered")
+                    _remember_report(publication_to_send, state)
+                    continue
+                if dry_run:
+                    LOGGER.info(
+                        "Dry run prepared publication for %s (%s)",
+                        publication_to_send.ticker,
+                        publication_to_send.category,
+                    )
+                    telegram_status = "dry-run"
+                else:
+                    telegram_status = telegram.send_message(format_message(publication_to_send))
+                statistics.sent += 1
+                mark_sent(publication_to_send, state, checked_at, telegram_status)
+                _remember_report(publication_to_send, state)
             statistics.successful += 1
             previous_status = state.source_status.get(source_config.id)
             current_status = SourceStatus(
@@ -469,7 +567,7 @@ def run(
                 consecutive_errors=0,
                 failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
             )
-            if current_status.failure_alert_sent and _send_health_message(
+            if not dry_run and current_status.failure_alert_sent and _send_health_message(
                 telegram,
                 _source_recovery_message(source_config, checked_at),
             ):
@@ -491,9 +589,14 @@ def run(
                 + 1,
                 failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
             )
-            if current_status.consecutive_errors >= 3 and not current_status.failure_alert_sent and _send_health_message(
+            if (
+                not dry_run
+                and current_status.consecutive_errors >= 3
+                and not current_status.failure_alert_sent
+                and _send_health_message(
                 telegram,
                 _source_failure_message(source_config, current_status),
+                )
             ):
                 current_status.failure_alert_sent = True
                 telegram_messages += 1
@@ -505,7 +608,8 @@ def run(
     state.last_run_new_publications = statistics.new_publications
     state.last_run_telegram_messages = statistics.sent + telegram_messages
     state.last_run_errors = statistics.errors
-    state_storage.save(state)
+    if not dry_run:
+        state_storage.save(state)
     LOGGER.info(
         "Источников проверено: %s; Успешно: %s; Ошибки: %s; "
         "Новых публикаций: %s; Отправлено: %s; Дубликатов: %s",
@@ -519,7 +623,7 @@ def run(
     print(f"Duration: {duration_seconds:.2f}s")
     print(f"Sources: {statistics.sources_checked}")
     print(f"New publications: {statistics.new_publications}")
-    print(f"Telegram messages: {state.last_run_telegram_messages}")
+    print(f"Telegram messages: {0 if dry_run else state.last_run_telegram_messages}")
     print(f"Errors: {statistics.errors}")
     return state
 
@@ -565,13 +669,27 @@ def main() -> int:
     parser.add_argument("--send-test-message", action="store_true")
     parser.add_argument("--send-existing-item", action="store_true")
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=os.getenv("DRY_RUN", "").strip().lower() == "true",
+        help="Prepare messages without Telegram delivery or state writes",
+    )
+    parser.add_argument(
         "--workflow-name", default=os.getenv("GITHUB_WORKFLOW", "Dividend monitor")
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if args.dry_run:
+        telegram: TelegramClient | DryRunTelegram = DryRunTelegram()
+    else:
+        try:
+            telegram = TelegramClient.from_environment()
+        except TelegramConfigurationError as exc:
+            parser.error(str(exc))
     try:
-        telegram = TelegramClient.from_environment()
-    except TelegramConfigurationError as exc:
+        ai_client = client_from_environment()
+        ai_filter_enabled, ai_min_importance = filter_from_environment()
+    except ValueError as exc:
         parser.error(str(exc))
     run(
         args.root,
@@ -579,7 +697,10 @@ def main() -> int:
         send_test_message=args.send_test_message,
         send_existing_item=args.send_existing_item,
         workflow_name=args.workflow_name,
-        ai_client=GitHubModelsClient.from_environment(),
+        ai_client=ai_client,
+        dry_run=args.dry_run,
+        ai_filter_enabled=ai_filter_enabled,
+        ai_min_importance=ai_min_importance,
     )
     return 0
 

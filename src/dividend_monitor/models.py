@@ -146,6 +146,12 @@ class SentItem(StrictModel):
     dividend_status: DividendStatus | None = None
 
 
+class AiCacheEntry(StrictModel):
+    summary: str = Field(min_length=1, max_length=500)
+    importance: Importance
+    created_at: datetime
+
+
 class SourceStatus(StrictModel):
     last_checked_at: datetime
     status: Literal["ok", "error"]
@@ -156,7 +162,7 @@ class SourceStatus(StrictModel):
 
 
 class MonitorState(StrictModel):
-    schema_version: int = 4
+    schema_version: int = 5
     last_successful_check: datetime | None = None
     last_daily_summary_date: str | None = None
     last_weekly_health_report_date: str | None = None
@@ -168,6 +174,7 @@ class MonitorState(StrictModel):
     sent_items: list[SentItem] = Field(default_factory=list)
     financial_reports: list[Publication] = Field(default_factory=list)
     source_status: dict[str, SourceStatus] = Field(default_factory=dict)
+    ai_cache: dict[str, AiCacheEntry] = Field(default_factory=dict)
 
 
 class RunStatistics(StrictModel):

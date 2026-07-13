@@ -21,6 +21,11 @@ on:
         required: false
         default: false
         type: boolean
+      dry_run:
+        description: "Run without Telegram delivery or state changes"
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: dividend-monitor
@@ -56,9 +61,15 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_ENABLED: "true"
+          AI_MODEL: openai/gpt-4o
+          AI_BATCH_SIZE: "5"
+          AI_FILTER_ENABLED: "false"
+          AI_MIN_IMPORTANCE: low
           SEND_TEST_MESSAGE: ${{ inputs.send_test_message || false }}
           SEND_EXISTING_ITEM: ${{ inputs.send_existing_item || false }}
           VERIFY_AI: ${{ inputs.verify_ai || false }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
           WORKFLOW_NAME: ${{ github.workflow }}
         shell: bash
         run: |
@@ -71,6 +82,9 @@ jobs:
             args+=(--send-existing-item)
           elif [ "$SEND_TEST_MESSAGE" = "true" ]; then
             args+=(--send-test-message --workflow-name "$WORKFLOW_NAME")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
           fi
           set -o pipefail
           python -m dividend_monitor.runner "${args[@]}" 2>&1 | tee monitor-output.txt

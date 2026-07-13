@@ -335,6 +335,43 @@ def test_runner_delivers_deterministic_message_when_ai_is_unavailable(
     assert state.sent_items[0].telegram_message_status == "sent"
 
 
+def test_runner_dry_run_uses_fake_ai_without_delivery_or_state_write(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = Path(__file__).parents[1]
+    telegram = FakeTelegram()
+    state_path = tmp_path / "state.json"
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: SourcesConfig(
+            version=1,
+            sources=[
+                SourceConfig(
+                    id="local-fixture",
+                    name="Local fixture",
+                    type="fixture",
+                    path="tests/fixtures/news.xml",
+                    companies=["SBER"],
+                    categories=["news"],
+                )
+            ],
+        ),
+    )
+
+    state = run(
+        root,
+        telegram,
+        state_path=state_path,
+        ai_client=runner_module.FakeAIClient(),
+        dry_run=True,
+    )
+
+    assert telegram.messages == []
+    assert not state_path.exists()
+    assert state.sent_items[0].telegram_message_status == "dry-run"
+
+
 def test_format_message_stays_within_telegram_limit_for_hostile_long_text() -> None:
     publication = Publication(
         source_id="fixture",
