@@ -1,7 +1,21 @@
 companies:
-  - name: Сбербанк
+  - name: ПАО «Сбербанк»
     ticker: SBER
-  - name: Московская биржа
+  - name: ПАО «Московская биржа»
     ticker: MOEX
-  - name: Россети Ленэнерго
+  - name: ПАО «Россети Ленэнерго»
     ticker: LSNGP
+  - name: ПАО «ЛУКОЙЛ»
+    ticker: LKOH
+  - name: ПАО «Транснефть»
+    ticker: TRNFP
+  - name: ПАО «Корпоративный центр ИКС 5»
+    ticker: X5
+  - name: ПАО «Татнефть» имени В.Д. Шашина
+    ticker: TATNP
+  - name: МКПАО «Хэдхантер»
+    ticker: HEAD
+  - name: ПАО «Интер РАО»
+    ticker: IRAO
+  - name: ПАО «НМТП»
+    ticker: NMTP

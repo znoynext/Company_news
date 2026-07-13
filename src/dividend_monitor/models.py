@@ -9,6 +9,7 @@ Category = Literal["news", "financial_report", "dividend", "corporate"]
 Importance = Literal["low", "medium", "high"]
 SourceType = Literal["fixture", "rss", "official_html"]
 Reliability = Literal["high", "medium", "low"]
+SourceAvailability = Literal["working", "limited", "manual", "unavailable"]
 
 
 class StrictModel(BaseModel):
@@ -36,6 +37,7 @@ class SourceConfig(StrictModel):
     primary: bool = True
     timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     max_retries: int = Field(default=2, ge=0, le=5)
+    status: SourceAvailability = "working"
 
 
 class SourcesConfig(StrictModel):
@@ -80,3 +82,12 @@ class MonitorState(StrictModel):
     last_daily_summary_date: str | None = None
     sent_items: list[SentItem] = Field(default_factory=list)
     source_status: dict[str, SourceStatus] = Field(default_factory=dict)
+
+
+class RunStatistics(StrictModel):
+    sources_checked: int = Field(default=0, ge=0)
+    successful: int = Field(default=0, ge=0)
+    errors: int = Field(default=0, ge=0)
+    new_publications: int = Field(default=0, ge=0)
+    sent: int = Field(default=0, ge=0)
+    duplicates: int = Field(default=0, ge=0)

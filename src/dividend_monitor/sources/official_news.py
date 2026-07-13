@@ -1,0 +1,82 @@
+"""Conservative parser for verified official company news pages."""
+
+import re
+from datetime import UTC, datetime
+
+from bs4 import BeautifulSoup
+from pydantic import HttpUrl
+
+from ..models import Company, Publication, SourceConfig
+from .base import Source, source_http_client
+from .parsing import category_from_text, normalize_url, parse_date
+
+_DATE_PATTERN = re.compile(
+    r"(?:\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{4}-\d{1,2}-\d{1,2}|"
+    r"\d{1,2}\s+[A-Za-zА-Яа-яЁё]+\s+\d{4})"
+)
+_SKIP_SUFFIXES = (".pdf", ".xlsx", ".xls", ".doc", ".docx", ".zip", ".jpg", ".png")
+
+
+class OfficialNewsListSource(Source):
+    """Parse article links only when the page exposes a publication date nearby."""
+
+    def __init__(self, config: SourceConfig, company: Company) -> None:
+        self.config = config
+        self.company = company
+
+    def fetch(self) -> list[Publication]:
+        if not self.config.url:
+            raise ValueError(f"Official news source '{self.config.id}' requires url")
+        with source_http_client(
+            self.config.timeout_seconds, max_requests=1, max_retries=self.config.max_retries
+        ) as client:
+            response = client.get(str(self.config.url))
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        discovered_at = datetime.now(UTC)
+        publications: list[Publication] = []
+        seen_urls: set[str] = set()
+        for link in soup.select("a[href]"):
+            title = re.sub(r"\s+", " ", link.get_text(" ", strip=True))
+            href = link.get("href", "").strip()
+            if (
+                len(title) < 12
+                or not href
+                or href.casefold().startswith(("mailto:", "javascript:"))
+            ):
+                continue
+            url = normalize_url(href, str(self.config.url))
+            if url.casefold().endswith(_SKIP_SUFFIXES) or url in seen_urls:
+                continue
+            container = link
+            context = ""
+            for _ in range(3):
+                context = re.sub(r"\s+", " ", container.get_text(" ", strip=True))
+                if _DATE_PATTERN.search(context):
+                    break
+                if not container.parent:
+                    break
+                container = container.parent
+            date_match = _DATE_PATTERN.search(context)
+            if not date_match:
+                continue
+            seen_urls.add(url)
+            publications.append(
+                Publication(
+                    source_id=self.config.id,
+                    company=self.company.name,
+                    ticker=self.company.ticker,
+                    category=category_from_text(
+                        f"{title} {context}", self.config.categories[0]
+                    ),
+                    title=title,
+                    description=context,
+                    published_at=parse_date(date_match.group(0), discovered_at),
+                    url=HttpUrl(url),
+                    external_id=url,
+                    discovered_at=discovered_at,
+                    source_type="official_html",
+                    reliability="medium",
+                )
+            )
+        return publications

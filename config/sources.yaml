@@ -10,6 +10,7 @@ sources:
     primary: true
     timeout_seconds: 30
     max_retries: 0
+    status: working
   - id: moex-investor-relations-rss
     name: Московская биржа — Investor Relations RSS
     type: rss
@@ -20,6 +21,7 @@ sources:
     primary: true
     timeout_seconds: 30
     max_retries: 2
+    status: working
   - id: rosseti-lenenergo-press
     name: Россети Ленэнерго — официальный список новостей
     type: official_html
@@ -30,6 +32,7 @@ sources:
     primary: true
     timeout_seconds: 30
     max_retries: 2
+    status: working
   - id: sber-official-disclosure
     name: Сбербанк — официальный раздел раскрытия информации
     type: official_html
@@ -40,3 +43,48 @@ sources:
     primary: true
     timeout_seconds: 30
     max_retries: 2
+    status: unavailable
+  - id: lukoil-official-news
+    name: ПАО «ЛУКОЙЛ» — официальный пресс-центр и IR-релизы
+    type: official_html
+    enabled: true
+    url: https://www.lukoil.com/PressCenter/Pressreleases
+    companies: [LKOH]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: x5-official-news
+    name: X5 — официальный раздел для инвесторов
+    type: official_html
+    enabled: true
+    url: https://x5.ru/ru/investors/
+    companies: [X5]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: headhunter-official-news
+    name: МКПАО «Хэдхантер» — официальный пресс-центр для инвесторов
+    type: official_html
+    enabled: true
+    url: https://investor.hh.ru/ru/press-center
+    companies: [HEAD]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: interrao-official-news
+    name: ПАО «Интер РАО» — официальный раздел новостей
+    type: official_html
+    enabled: true
+    url: https://www.interrao.ru/press-center/news/
+    companies: [IRAO]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited

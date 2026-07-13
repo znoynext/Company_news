@@ -6,7 +6,12 @@ from pathlib import Path
 import httpx
 
 from dividend_monitor.models import Company, SourceConfig
-from dividend_monitor.sources import LenenergoPressSource, MoexRssSource, SberOfficialHtmlSource
+from dividend_monitor.sources import (
+    LenenergoPressSource,
+    MoexRssSource,
+    OfficialNewsListSource,
+    SberOfficialHtmlSource,
+)
 
 
 class FixtureResponse:
@@ -90,3 +95,21 @@ def test_sber_adapter_uses_saved_html(monkeypatch) -> None:
     assert item.external_id == "fixture-sber-001"
     assert item.category == "corporate"
     assert item.discovered_at.tzinfo is not None
+
+
+def test_official_news_adapter_requires_a_nearby_date(monkeypatch) -> None:
+    from dividend_monitor.sources import official_news
+
+    patch_http_client(
+        monkeypatch, official_news, FixtureResponse(Path("tests/fixtures/official_news.html"))
+    )
+    source = OfficialNewsListSource(
+        source_config("official", "official_html", ["news", "financial_report"]),
+        Company(name="Тест", ticker="TEST"),
+    )
+
+    item = source.fetch()[0]
+
+    assert item.title == "Компания опубликовала финансовые результаты"
+    assert item.published_at == datetime(2026, 7, 13, tzinfo=UTC)
+    assert item.category == "financial_report"

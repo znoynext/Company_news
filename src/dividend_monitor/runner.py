@@ -10,10 +10,11 @@ from pathlib import Path
 from . import __version__
 from .config import load_companies, load_sources
 from .deduplication import is_new, mark_sent
-from .models import Company, MonitorState, Publication, SourceConfig, SourceStatus
+from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
 from .sources.base import FixtureSource, Source
 from .sources.lenenergo import LenenergoPressSource
 from .sources.moex import MoexRssSource
+from .sources.official_news import OfficialNewsListSource
 from .sources.sber import SberOfficialHtmlSource
 from .storage import JsonStateStorage
 from .summarizer import summarize
@@ -60,6 +61,13 @@ def _build_source(config: SourceConfig, companies: dict[str, Company], root: Pat
         return LenenergoPressSource(config, company)
     if config.id == "sber-official-disclosure":
         return SberOfficialHtmlSource(config, company)
+    if config.type == "official_html" and config.id in {
+        "lukoil-official-news",
+        "x5-official-news",
+        "headhunter-official-news",
+        "interrao-official-news",
+    }:
+        return OfficialNewsListSource(config, company)
     raise ValueError(f"Unsupported source type: {config.type}")
 
 
@@ -99,6 +107,7 @@ def run(
     state_path: Path = Path("data/state.json"),
     send_test_message: bool = False,
     workflow_name: str = "Dividend monitor",
+    run_statistics: RunStatistics | None = None,
 ) -> MonitorState:
     companies_config = load_companies(root / companies_path)
     sources_config = load_sources(root / sources_path)
@@ -106,6 +115,7 @@ def run(
     state_storage = JsonStateStorage(root / state_path)
     state = state_storage.load()
     checked_at = datetime.now(UTC)
+    statistics = run_statistics or RunStatistics()
 
     if send_test_message:
         telegram.send_message(format_test_message(__version__, workflow_name, checked_at))
@@ -113,16 +123,23 @@ def run(
     for source_config in sources_config.sources:
         if not source_config.enabled:
             continue
+        statistics.sources_checked += 1
         try:
             source = _build_source(source_config, companies, root)
             for publication in source.fetch():
                 if is_new(publication, state):
+                    statistics.new_publications += 1
                     telegram.send_message(format_message(publication))
+                    statistics.sent += 1
                     mark_sent(publication, state, checked_at)
+                else:
+                    statistics.duplicates += 1
+            statistics.successful += 1
             state.source_status[source_config.id] = SourceStatus(
                 last_checked_at=checked_at, status="ok"
             )
         except Exception as exc:  # isolate one source from the rest of the run
+            statistics.errors += 1
             LOGGER.exception("Source '%s' failed", source_config.id)
             state.source_status[source_config.id] = SourceStatus(
                 last_checked_at=checked_at, status="error", error=str(exc)
@@ -130,6 +147,16 @@ def run(
 
     state.last_successful_check = checked_at
     state_storage.save(state)
+    LOGGER.info(
+        "Источников проверено: %s; Успешно: %s; Ошибки: %s; "
+        "Новых публикаций: %s; Отправлено: %s; Дубликатов: %s",
+        statistics.sources_checked,
+        statistics.successful,
+        statistics.errors,
+        statistics.new_publications,
+        statistics.sent,
+        statistics.duplicates,
+    )
     return state
 
 

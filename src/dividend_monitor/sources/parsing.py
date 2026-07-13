@@ -51,6 +51,14 @@ def parse_date(value: str | None, fallback: datetime | None = None) -> datetime:
             iso_match = re.search(r"(\d{4}-\d{2}-\d{2})", value)
             if iso_match:
                 return datetime.fromisoformat(iso_match.group(1)).replace(tzinfo=UTC)
+            numeric_match = re.search(r"(\d{1,2})[./-](\d{1,2})[./-](\d{4})", value)
+            if numeric_match:
+                return datetime(
+                    int(numeric_match.group(3)),
+                    int(numeric_match.group(2)),
+                    int(numeric_match.group(1)),
+                    tzinfo=UTC,
+                )
     return fallback or datetime.now(UTC)
 
 

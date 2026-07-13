@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import dividend_monitor.runner as runner_module
-from dividend_monitor.models import Publication, SourceConfig, SourcesConfig
+from dividend_monitor.models import Publication, RunStatistics, SourceConfig, SourcesConfig
 from dividend_monitor.runner import format_message, format_test_message, run
 
 
@@ -35,11 +35,22 @@ def test_runner_sends_fixture_once(tmp_path: Path, monkeypatch) -> None:
             ],
         ),
     )
-    first = run(root, telegram, state_path=state_path)
-    second = run(root, telegram, state_path=state_path)
+    first_statistics = RunStatistics()
+    second_statistics = RunStatistics()
+    first = run(root, telegram, state_path=state_path, run_statistics=first_statistics)
+    second = run(root, telegram, state_path=state_path, run_statistics=second_statistics)
     assert len(telegram.messages) == 1
     assert len(first.sent_items) == 1
     assert len(second.sent_items) == 1
+    assert first_statistics.model_dump() == {
+        "sources_checked": 1,
+        "successful": 1,
+        "errors": 0,
+        "new_publications": 1,
+        "sent": 1,
+        "duplicates": 0,
+    }
+    assert second_statistics.duplicates == 1
     assert "Сбербанк" in telegram.messages[0]
 
 
