@@ -1,9 +1,27 @@
 version: 1
+environment: production
+initial_sync_mode: remember_only
+max_item_age_hours: 168
+ai:
+  enabled: true
+  max_requests_per_run: 10
+  max_requests_per_day: 100
+  reserve_requests_for_high_priority: 3
+  max_input_characters: 6000
+  cache_ttl_days: 180
+  cache_max_items: 5000
+  enrich_priorities: [high, medium]
+  skip_low_priority_when_budget_low: true
+telegram:
+  max_messages_per_run: 20
+  aggregate_source_errors: true
+  group_company_events: true
+  send_low_priority_immediately: false
 sources:
   - id: local-fixture
     name: Локальный тестовый RSS
     type: fixture
-    enabled: true
+    enabled: false
     path: tests/fixtures/news.xml
     companies: [SBER]
     categories: [news]

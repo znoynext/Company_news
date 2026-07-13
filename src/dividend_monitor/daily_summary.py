@@ -29,7 +29,9 @@ def _in_last_24_hours(item: SentItem, now: datetime) -> bool:
 
 
 def _is_important(item: SentItem) -> bool:
-    return item.category in {"dividend", "financial_report", "corporate"} or item.importance == "high"
+    return (
+        item.category in {"dividend", "financial_report", "corporate"} or item.importance == "high"
+    )
 
 
 def _event_line(item: SentItem) -> str:

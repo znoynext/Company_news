@@ -14,6 +14,7 @@ from dividend_monitor.sources import (
     OfficialNewsListSource,
     SberOfficialHtmlSource,
 )
+from dividend_monitor.sources.parsing import parse_date
 
 
 class FixtureResponse:
@@ -162,3 +163,9 @@ def test_edisclosure_adapter_reads_only_issuer_reports(monkeypatch) -> None:
     assert len(items) == 1
     assert items[0].category == "financial_report"
     assert items[0].published_at == datetime(2026, 4, 29, tzinfo=UTC)
+
+
+def test_unknown_date_is_not_replaced_with_current_time() -> None:
+    assert parse_date(None) is None
+    assert parse_date("") is None
+    assert parse_date("not a date") is None

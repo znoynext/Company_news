@@ -32,6 +32,9 @@ class LenenergoPressSource(Source):
                 continue
             container = link.parent.get_text(" ", strip=True) if link.parent else title
             url = normalize_url(link.get("href", ""), str(self.config.url))
+            published_at = parse_date(container)
+            if published_at is None:
+                continue
             publications.append(
                 Publication(
                     source_id=self.config.id,
@@ -40,7 +43,7 @@ class LenenergoPressSource(Source):
                     category=category_from_text(title, self.config.categories[0]),
                     title=title,
                     description=re.sub(r"\s+", " ", container),
-                    published_at=parse_date(container, discovered_at),
+                    published_at=published_at,
                     url=HttpUrl(url),
                     external_id=url.rsplit("/", 1)[-1],
                     discovered_at=discovered_at,

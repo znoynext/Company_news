@@ -39,6 +39,9 @@ class SberOfficialHtmlSource(Source):
                 continue
             container = link.parent.get_text(" ", strip=True) if link.parent else title
             url = normalize_url(href, str(self.config.url))
+            published_at = parse_date(container)
+            if published_at is None:
+                continue
             query = parse_qs(urlsplit(url).query)
             external_id = query.get("newsID", query.get("newsid", [None]))[0]
             publications.append(
@@ -49,7 +52,7 @@ class SberOfficialHtmlSource(Source):
                     category=category_from_text(title, self.config.categories[0]),
                     title=re.sub(r"\s+", " ", title),
                     description=re.sub(r"\s+", " ", container),
-                    published_at=parse_date(container, discovered_at),
+                    published_at=published_at,
                     url=HttpUrl(url),
                     external_id=external_id,
                     discovered_at=discovered_at,

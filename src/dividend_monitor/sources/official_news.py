@@ -2,6 +2,7 @@
 
 import re
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 from pydantic import HttpUrl
@@ -15,6 +16,12 @@ _DATE_PATTERN = re.compile(
     r"\d{1,2}\s+[A-Za-zА-Яа-яЁё]+\s+\d{4})"
 )
 _SKIP_SUFFIXES = (".pdf", ".xlsx", ".xls", ".doc", ".docx", ".zip", ".jpg", ".png")
+_SOURCE_SELECTORS = {
+    "lukoil-official-news": "article, .news-item, .press-release",
+    "x5-official-news": "article, .news-item, .news-card",
+    "headhunter-official-news": "article, .news-item, .press-center__item",
+    "interrao-official-news": "article, .news-item, .news-list__item",
+}
 
 
 class OfficialNewsListSource(Source):
@@ -36,7 +43,13 @@ class OfficialNewsListSource(Source):
         discovered_at = datetime.now(UTC)
         publications: list[Publication] = []
         seen_urls: set[str] = set()
-        for link in soup.select("a[href]"):
+        containers = soup.select(_SOURCE_SELECTORS.get(self.config.id, "article, .news-item"))
+        if not containers:
+            containers = soup.select("a[href]")
+        for container in containers:
+            link = container if container.name == "a" else container.select_one("a[href]")
+            if link is None:
+                continue
             title = re.sub(r"\s+", " ", link.get_text(" ", strip=True))
             href = link.get("href", "").strip()
             if (
@@ -46,9 +59,12 @@ class OfficialNewsListSource(Source):
             ):
                 continue
             url = normalize_url(href, str(self.config.url))
-            if url.casefold().endswith(_SKIP_SUFFIXES) or url in seen_urls:
+            if (
+                not self._is_article_url(url)
+                or url.casefold().endswith(_SKIP_SUFFIXES)
+                or url in seen_urls
+            ):
                 continue
-            container = link
             context = ""
             for _ in range(3):
                 context = re.sub(r"\s+", " ", container.get_text(" ", strip=True))
@@ -60,18 +76,19 @@ class OfficialNewsListSource(Source):
             date_match = _DATE_PATTERN.search(context)
             if not date_match:
                 continue
+            published_at = parse_date(date_match.group(0))
+            if published_at is None:
+                continue
             seen_urls.add(url)
             publications.append(
                 Publication(
                     source_id=self.config.id,
                     company=self.company.name,
                     ticker=self.company.ticker,
-                    category=category_from_text(
-                        f"{title} {context}", self.config.categories[0]
-                    ),
+                    category=category_from_text(f"{title} {context}", self.config.categories[0]),
                     title=title,
                     description=context,
-                    published_at=parse_date(date_match.group(0), discovered_at),
+                    published_at=published_at,
                     url=HttpUrl(url),
                     external_id=url,
                     discovered_at=discovered_at,
@@ -80,3 +97,14 @@ class OfficialNewsListSource(Source):
                 )
             )
         return publications
+
+    def _is_article_url(self, url: str) -> bool:
+        """Reject navigation, archives, and off-domain links before they become news."""
+        source = urlsplit(str(self.config.url))
+        candidate = urlsplit(url)
+        if candidate.hostname != source.hostname or candidate.path.rstrip(
+            "/"
+        ) == source.path.rstrip("/"):
+            return False
+        path = candidate.path.casefold()
+        return not any(marker in path for marker in ("/search", "/archive", "/tag", "/all-"))

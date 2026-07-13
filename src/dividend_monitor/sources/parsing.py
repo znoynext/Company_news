@@ -37,7 +37,8 @@ def normalize_url(url: str, base_url: str | None = None) -> str:
     )
 
 
-def parse_date(value: str | None, fallback: datetime | None = None) -> datetime:
+def parse_date(value: str | None) -> datetime | None:
+    """Parse a source date without ever turning an unknown date into "now"."""
     if value:
         try:
             parsed = parsedate_to_datetime(value)
@@ -59,7 +60,7 @@ def parse_date(value: str | None, fallback: datetime | None = None) -> datetime:
                     int(numeric_match.group(1)),
                     tzinfo=UTC,
                 )
-    return fallback or datetime.now(UTC)
+    return None
 
 
 def category_from_text(text: str, default: Category = "news") -> Category:

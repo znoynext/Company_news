@@ -51,7 +51,7 @@ def test_daily_summary_counts_categories_and_escapes_event_lines() -> None:
     assert ">\n3\n" in message
     assert "Дивидендных событий" in message
     assert "Dividend &lt;approved&gt;" in message
-    assert "href=\"https://example.com/?q=1&amp;x=2\"" in message
+    assert 'href="https://example.com/?q=1&amp;x=2"' in message
     assert "Old event" not in message
 
 
@@ -83,9 +83,7 @@ def test_daily_summary_is_not_sent_twice_on_same_day(tmp_path: Path) -> None:
 def test_stale_workflow_warning_is_not_repeated(tmp_path: Path) -> None:
     now = datetime(2026, 7, 14, 8, 17, tzinfo=UTC)
     state_path = tmp_path / "state.json"
-    JsonStateStorage(state_path).save(
-        MonitorState(last_successful_check=now - timedelta(hours=3))
-    )
+    JsonStateStorage(state_path).save(MonitorState(last_successful_check=now - timedelta(hours=3)))
     telegram = FakeTelegram()
 
     assert send_daily_summary(tmp_path, telegram, state_path=Path("state.json"), now=now)

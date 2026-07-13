@@ -1,5 +1,36 @@
 # Dividend Monitor
 
+## Надёжность и бесплатная эксплуатация
+
+Монитор работает как одно Python-приложение в GitHub Actions: постоянный сервер,
+внешняя база данных, платный AI и платные прокси не требуются. Состояние хранится
+в `data/state.json`; запись атомарна, а старые версии состояния мигрируются с
+резервной копией `.bak`.
+
+Тестовый fixture-источник отключён в production. При первом запуске применяется
+`initial_sync_mode: remember_only`: найденные публикации запоминаются без массовой
+рассылки архива. Для осознанной архивной отправки используйте
+`python -m dividend_monitor.runner --backfill --days 30`.
+
+GitHub Models — необязательное дополнение. Лимиты задаются в `config/sources.yaml`:
+по умолчанию 10 запросов за запуск, 100 за день и резерв 3 запросов для важных
+событий. Кеш привязан к стабильной identity, версии prompt и модели. При лимите
+или ошибке AI монитор продолжает доставку с детерминированным описанием; платный
+провайдер автоматически не подключается. Актуальные лимиты GitHub зависят от
+плана и могут меняться, поэтому их необходимо контролировать в настройках GitHub.
+
+Telegram не является строго exactly-once транспортом: между успешной отправкой и
+Git commit возможен сбой. Монитор уменьшает риск повторов стабильной identity,
+сохранением статуса и `message_id`, если API его вернул.
+
+| Source | Adapter | Support | Tests |
+| --- | --- | --- | --- |
+| MOEX | RSS | supported | XML fixture |
+| Lenenergo | dedicated HTML | supported | HTML fixture |
+| Sber | dedicated HTML | supported | HTML fixture |
+| E-disclosure | report list | experimental | HTML fixture |
+| Lukoil, X5, HeadHunter, Inter RAO | conservative HTML list | experimental | parser invariants |
+
 > Исходное описание репозитория: my bot for news.
 
 Бесплатный пакетный Telegram-монитор публикаций компаний. Каждый запуск выполняет проверку источников, отправляет новые публикации и сохраняет историю в JSON. Постоянного сервера, polling-процесса и базы данных нет.

@@ -44,6 +44,9 @@ class EdisclosureReportsSource(Source):
                 continue
             seen_urls.add(url)
             date_match = re.search(r"\d{1,2}[./]\d{1,2}[./]\d{4}", text)
+            published_at = parse_date(date_match.group(0)) if date_match else None
+            if published_at is None:
+                continue
             title = re.sub(r"\s+", " ", link.get_text(" ", strip=True)) or "Отчёт эмитента"
             report_period, period_kind, report_standard = detect_report_context(text)
             report_url = HttpUrl(url)
@@ -56,7 +59,7 @@ class EdisclosureReportsSource(Source):
                     category="financial_report",
                     title=title,
                     description=text,
-                    published_at=parse_date(date_match.group(0), discovered_at),
+                    published_at=published_at,
                     url=report_url,
                     external_id=url,
                     discovered_at=discovered_at,

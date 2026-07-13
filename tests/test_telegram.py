@@ -7,6 +7,7 @@ from dividend_monitor.telegram import (
     TelegramClient,
     TelegramConfigurationError,
     TelegramDeliveryError,
+    _retry_delay,
 )
 
 
@@ -63,3 +64,9 @@ def test_message_over_telegram_limit_is_rejected_before_request() -> None:
 
     with pytest.raises(ValueError, match="4096"):
         client.send_message("x" * 4097)
+
+
+def test_retry_delay_uses_telegram_retry_after() -> None:
+    response = httpx.Response(429, json={"parameters": {"retry_after": 12}})
+
+    assert _retry_delay(response, 0) == 12

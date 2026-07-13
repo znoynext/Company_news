@@ -16,6 +16,8 @@ from pydantic import HttpUrl
 
 from .models import FinancialMetric, MetricName, ReportPeriodKind, ReportStandard
 
+_MAX_XML_CHARACTERS = 1_000_000
+
 _METRIC_ALIASES: dict[MetricName, tuple[str, ...]] = {
     "revenue": ("\u0432\u044b\u0440\u0443\u0447\u043a\u0430", "revenue"),
     "operating_profit": (
@@ -173,7 +175,7 @@ def extract_structured_metrics(content: str, source_url: HttpUrl) -> list[Financ
     rows: list[dict[str, Any]] = []
     with suppress(json.JSONDecodeError, TypeError):
         rows = _json_rows(json.loads(content))
-    if not rows:
+    if not rows and _safe_xml_candidate(content):
         with suppress(ElementTree.ParseError):
             root = ElementTree.fromstring(content)
             rows = [element.attrib for element in root.iter("metric")]
@@ -230,6 +232,17 @@ def extract_structured_metrics(content: str, source_url: HttpUrl) -> list[Financ
             }
         )
     return [metric for row in normalized_rows if (metric := _build_metric(row, source_url))]
+
+
+def _safe_xml_candidate(content: str) -> bool:
+    """Reject DTD/entity-bearing or oversized external XML before parsing it."""
+    normalized = content.lstrip().upper()
+    return (
+        len(content) <= _MAX_XML_CHARACTERS
+        and "<!DOCTYPE" not in normalized
+        and "<!ENTITY" not in normalized
+        and normalized.startswith("<")
+    )
 
 
 def metric_pairs(

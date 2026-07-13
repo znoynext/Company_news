@@ -33,10 +33,23 @@ def test_same_external_id_is_not_sent_twice() -> None:
     assert state.sent_items[0].deduplication_id == deduplication_id(item)
 
 
+def test_external_id_identity_ignores_title_and_time_changes() -> None:
+    state = MonitorState()
+    first = publication()
+    changed = first.model_copy(
+        update={"title": "Corrected title", "published_at": datetime(2026, 7, 14, tzinfo=UTC)}
+    )
+
+    mark_sent(first, state)
+
+    assert not is_new(changed, state)
+
+
 def test_normalize_url_removes_tracking_and_preserves_meaningful_query() -> None:
-    assert normalize_url(
-        "HTTPS://Example.COM/report/123/?utm_source=rss&b=2&fbclid=x&a=1#section"
-    ) == "https://example.com/report/123?a=1&b=2"
+    assert (
+        normalize_url("HTTPS://Example.COM/report/123/?utm_source=rss&b=2&fbclid=x&a=1#section")
+        == "https://example.com/report/123?a=1&b=2"
+    )
     assert normalize_url("https://example.com/?utm_medium=email#top") == "https://example.com/"
 
 

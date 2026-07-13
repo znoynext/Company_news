@@ -45,7 +45,7 @@ class TelegramClient:
             raise TelegramConfigurationError(f"Missing required environment variable(s): {joined}")
         return cls(token, chat_id)
 
-    def send_message(self, text: str) -> str:
+    def send_message(self, text: str) -> int | str:
         if len(text) > 4096:
             raise ValueError("Telegram message exceeds the 4096-character limit")
         endpoint = f"https://api.telegram.org/bot{self._token}/sendMessage"
@@ -60,13 +60,14 @@ class TelegramClient:
                 response = self._client.post(endpoint, json=payload)
                 retryable_status = response.status_code in {429, 500, 502, 503, 504}
                 if retryable_status and attempt < self._max_retries:
-                    time.sleep(min(2**attempt, 4))
+                    time.sleep(_retry_delay(response, attempt))
                     continue
                 response.raise_for_status()
                 body: Any = response.json()
                 if not body.get("ok", False):
                     raise RuntimeError("Telegram API rejected the message")
-                return "sent"
+                message_id = body.get("result", {}).get("message_id")
+                return message_id if isinstance(message_id, int) else "sent"
             except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
                 if attempt >= self._max_retries:
                     raise TelegramDeliveryError("Telegram API request failed") from None
@@ -74,3 +75,14 @@ class TelegramClient:
             except httpx.HTTPError:
                 raise TelegramDeliveryError("Telegram API request failed") from None
         raise RuntimeError("Telegram message was not sent")
+
+
+def _retry_delay(response: httpx.Response, attempt: int) -> float:
+    """Prefer Telegram's explicit flood-control delay over exponential backoff."""
+    try:
+        retry_after = response.json().get("parameters", {}).get("retry_after")
+        if isinstance(retry_after, int | float) and retry_after >= 0:
+            return min(float(retry_after), 60.0)
+    except (TypeError, ValueError):
+        pass
+    return float(min(2**attempt, 4))

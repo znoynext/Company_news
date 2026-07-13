@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from . import __version__
@@ -25,8 +25,10 @@ from .github_models import (
     client_from_environment,
     filter_from_environment,
 )
+from .health import run_exit_code
 from .models import (
     AiCacheEntry,
+    AiConfig,
     Company,
     MonitorState,
     Publication,
@@ -61,12 +63,14 @@ class DryRunTelegram:
         LOGGER.info("Dry run prepared a Telegram message (%s characters)", len(message))
         return "dry-run"
 
+
 _IMPORTANCE_LABELS = {
     "high": "🔴 высокая",
     "medium": "🟡 средняя",
     "low": "⚪ низкая",
 }
 _IMPORTANCE_RANK = {"low": 0, "medium": 1, "high": 2}
+_CURRENCY_SYMBOLS = {"RUB": "₽", "USD": "$", "EUR": "€", "CNY": "¥"}
 
 
 def _shorten(text: str, max_length: int) -> str:
@@ -87,6 +91,12 @@ def _escape(text: str, max_length: int) -> str:
         else:
             upper = candidate_length - 1
     return html.escape(_shorten(text, lower), quote=True)
+
+
+def format_money(amount: object, currency: str) -> str:
+    """Format an already verified monetary amount without assuming rubles."""
+    value = format(amount, "f").rstrip("0").rstrip(".") or "0"
+    return f"{value} {_CURRENCY_SYMBOLS.get(currency.upper(), currency.upper())}"
 
 
 _METRIC_LABELS = {
@@ -297,8 +307,7 @@ def _format_dividend_message_v2(publication: Publication) -> str:
         "paid": "\u0432\u044b\u043f\u043b\u0430\u0447\u0435\u043d\u044b",
     }
     amount = (
-        f"{format(event.amount_per_share, 'f').rstrip('0').rstrip('.') or '0'} "
-        f"\u20bd \u043d\u0430 \u0430\u043a\u0446\u0438\u044e"
+        f"{format_money(event.amount_per_share, event.currency)} \u043d\u0430 \u0430\u043a\u0446\u0438\u044e"
         if event.amount_per_share is not None
         else "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u043e"
     )
@@ -326,11 +335,17 @@ def _format_dividend_message_v2(publication: Publication) -> str:
     if publication.ticker == "LSNGP":
         details = []
         if event.rasbu_net_profit:
-            details.append(f"\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c \u043f\u043e \u0420\u0421\u0411\u0423: {_escape(event.rasbu_net_profit, 300)}")
+            details.append(
+                f"\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c \u043f\u043e \u0420\u0421\u0411\u0423: {_escape(event.rasbu_net_profit, 300)}"
+            )
         if event.dividend_base:
-            details.append(f"\u0414\u0438\u0432\u0438\u0434\u0435\u043d\u0434\u043d\u0430\u044f \u0431\u0430\u0437\u0430: {_escape(event.dividend_base, 300)}")
+            details.append(
+                f"\u0414\u0438\u0432\u0438\u0434\u0435\u043d\u0434\u043d\u0430\u044f \u0431\u0430\u0437\u0430: {_escape(event.dividend_base, 300)}"
+            )
         if event.preferred_share_payment:
-            details.append(f"\u041f\u0440\u0438\u0432\u0438\u043b\u0435\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0430\u043a\u0446\u0438\u0438: {_escape(event.preferred_share_payment, 300)}")
+            details.append(
+                f"\u041f\u0440\u0438\u0432\u0438\u043b\u0435\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0430\u043a\u0446\u0438\u0438: {_escape(event.preferred_share_payment, 300)}"
+            )
         if details:
             message += "\n\n<b>LSNGP:</b>\n" + "\n".join(details)
     return message
@@ -362,9 +377,7 @@ def format_message(publication: Publication) -> str:
     return message
 
 
-def format_test_message(
-    app_version: str, workflow_name: str, now: datetime | None = None
-) -> str:
+def format_test_message(app_version: str, workflow_name: str, now: datetime | None = None) -> str:
     current_time = (now or datetime.now(UTC)).astimezone(UTC).isoformat().replace("+00:00", "Z")
     return (
         "✅ Dividend Monitor успешно подключен к Telegram.\n\n"
@@ -423,10 +436,13 @@ def _enhance_new_publications(
     state: MonitorState,
     ai_client: GitHubModelsClient | FakeAIClient | object | None,
     checked_at: datetime,
+    ai_config: AiConfig,
 ) -> tuple[list[Publication], GitHubModelsClient | FakeAIClient | object | None, str | None, bool]:
     """Use cache first, then enrich bounded batches without blocking delivery."""
-    if ai_client is None or not publications:
+    if ai_client is None or not ai_config.enabled or not publications:
         return publications, ai_client, None, False
+
+    _reset_daily_ai_usage(state, checked_at)
 
     cache_key = getattr(ai_client, "cache_key", None)
     batch_size = getattr(ai_client, "batch_size", 1)
@@ -449,16 +465,23 @@ def _enhance_new_publications(
         key = cache_key(publication)
         cached = state.ai_cache.get(key)
         publication_id = fingerprint(publication)
-        if cached is None:
+        if cached is None or cached.created_at < checked_at - timedelta(
+            days=ai_config.cache_ttl_days
+        ):
             pending.append(publication)
             keys[publication_id] = key
         else:
+            state.ai_usage.cache_hits += 1
             enhanced_by_id[publication_id] = publication.model_copy(
                 update={"ai_summary": cached.summary, "importance": cached.importance}
             )
 
+    pending.sort(key=lambda item: _IMPORTANCE_RANK[item.importance], reverse=True)
     for offset in range(0, len(pending), batch_size):
         batch = pending[offset : offset + batch_size]
+        if not _can_spend_ai_request(state, ai_config, batch):
+            state.ai_usage.skipped += len(batch)
+            continue
         try:
             results = enhance_batch(batch)
         except GitHubModelsUnavailable as exc:
@@ -469,6 +492,7 @@ def _enhance_new_publications(
                 _safe_error_reason(exc),
                 True,
             )
+        state.ai_usage.requests += 1
         for publication in batch:
             publication_id = fingerprint(publication)
             result = results.get(publication_id)
@@ -480,7 +504,59 @@ def _enhance_new_publications(
                 importance=result.importance,
                 created_at=checked_at,
             )
-    return [enhanced_by_id.get(fingerprint(item), item) for item in publications], ai_client, None, bool(pending)
+    _trim_ai_cache(state, ai_config)
+    return (
+        [enhanced_by_id.get(fingerprint(item), item) for item in publications],
+        ai_client,
+        None,
+        bool(pending),
+    )
+
+
+def _reset_daily_ai_usage(state: MonitorState, checked_at: datetime) -> None:
+    """Reset the state-backed daily AI counter at the UTC day boundary."""
+    today = checked_at.date().isoformat()
+    if state.ai_usage.date != today:
+        state.ai_usage.date = today
+        state.ai_usage.requests = 0
+        state.ai_usage.cache_hits = 0
+        state.ai_usage.rate_limit_hits = 0
+        state.ai_usage.skipped = 0
+
+
+def _can_spend_ai_request(state: MonitorState, config: AiConfig, batch: list[Publication]) -> bool:
+    """Reserve the tail of each budget for high-priority events."""
+    is_high = any(publication.importance == "high" for publication in batch)
+    remaining_run = config.max_requests_per_run - state.ai_usage.requests
+    remaining_day = config.max_requests_per_day - state.ai_usage.requests
+    if min(remaining_run, remaining_day) <= 0:
+        return False
+    return is_high or min(remaining_run, remaining_day) > config.reserve_requests_for_high_priority
+
+
+def _trim_ai_cache(state: MonitorState, config: AiConfig) -> None:
+    """Bound cache size while retaining the most recently created results."""
+    if len(state.ai_cache) <= config.cache_max_items:
+        return
+    newest = sorted(state.ai_cache.items(), key=lambda item: item[1].created_at, reverse=True)
+    state.ai_cache = dict(newest[: config.cache_max_items])
+
+
+def _is_recent(publication: Publication, checked_at: datetime, max_age_hours: int) -> bool:
+    """Return whether a publication is within a configured delivery window."""
+    published_at = publication.published_at
+    if published_at.tzinfo is None:
+        published_at = published_at.replace(tzinfo=UTC)
+    return published_at.astimezone(UTC) >= checked_at - timedelta(hours=max_age_hours)
+
+
+def _remember_bootstrap_publications(
+    publications: list[Publication], state: MonitorState, checked_at: datetime
+) -> None:
+    """Remember a first snapshot without creating an archival Telegram burst."""
+    for publication in publications:
+        mark_sent(publication, state, checked_at, "remembered")
+        _remember_report(publication, state)
 
 
 def run(
@@ -497,6 +573,8 @@ def run(
     dry_run: bool = False,
     ai_filter_enabled: bool = False,
     ai_min_importance: str = "low",
+    backfill: bool = False,
+    backfill_days: int | None = None,
 ) -> MonitorState:
     started_at = time.perf_counter()
     state_storage = JsonStateStorage(root / state_path)
@@ -520,6 +598,12 @@ def run(
     companies_config = load_companies(root / companies_path)
     sources_config = load_sources(root / sources_path)
     companies = {company.ticker: company for company in companies_config.companies}
+    for source_config in sources_config.sources:
+        unknown = set(source_config.companies) - companies.keys()
+        if unknown:
+            raise ValueError(
+                f"Source '{source_config.id}' references unknown companies: {sorted(unknown)}"
+            )
     checked_at = datetime.now(UTC)
     cleanup_old_state(state, checked_at)
     statistics = run_statistics or RunStatistics()
@@ -536,20 +620,43 @@ def run(
         try:
             source = _build_source(source_config, companies, root)
             new_publications: list[Publication] = []
-            for raw_publication in source.fetch():
+            fetched_publications = source.fetch()
+            for raw_publication in fetched_publications:
                 publication = _enrich_report_context(raw_publication)
                 if is_new(publication, state):
                     statistics.new_publications += 1
                     new_publications.append(_report_with_comparisons(publication, state))
                 else:
                     statistics.duplicates += 1
+            if (
+                not state.bootstrap_completed
+                and not backfill
+                and sources_config.initial_sync_mode == "remember_only"
+            ):
+                _remember_bootstrap_publications(new_publications, state, checked_at)
+                statistics.duplicates += len(new_publications)
+                new_publications = []
+            elif not backfill and sources_config.initial_sync_mode == "recent_only":
+                new_publications = [
+                    publication
+                    for publication in new_publications
+                    if _is_recent(publication, checked_at, sources_config.max_item_age_hours)
+                ]
+            elif backfill and backfill_days is not None:
+                new_publications = [
+                    publication
+                    for publication in new_publications
+                    if _is_recent(publication, checked_at, backfill_days * 24)
+                ]
             new_publications, ai_client, ai_error, ai_attempted = _enhance_new_publications(
-                new_publications, state, ai_client, checked_at
+                new_publications, state, ai_client, checked_at, sources_config.ai
             )
             if ai_error:
                 state.ai_last_error = ai_error
-                if not dry_run and not state.ai_failure_alert_sent and _send_health_message(
-                    telegram, _ai_failure_message(ai_error)
+                if (
+                    not dry_run
+                    and not state.ai_failure_alert_sent
+                    and _send_health_message(telegram, _ai_failure_message(ai_error))
                 ):
                     state.ai_failure_alert_sent = True
                     telegram_messages += 1
@@ -560,12 +667,34 @@ def run(
                     telegram_messages += 1
             for publication_to_send in new_publications:
                 if (
+                    publication_to_send.importance == "low"
+                    and not sources_config.telegram.send_low_priority_immediately
+                    and not backfill
+                ):
+                    mark_sent(publication_to_send, state, checked_at, "filtered")
+                    _remember_report(publication_to_send, state)
+                    continue
+                if (
+                    telegram_messages >= sources_config.telegram.max_messages_per_run
+                    and publication_to_send.importance != "high"
+                ):
+                    LOGGER.warning(
+                        "Telegram per-run limit reached; keeping %s for digest",
+                        publication_to_send.ticker,
+                    )
+                    mark_sent(publication_to_send, state, checked_at, "filtered")
+                    _remember_report(publication_to_send, state)
+                    continue
+                if (
                     ai_filter_enabled
                     and publication_to_send.ai_summary is not None
                     and _IMPORTANCE_RANK[publication_to_send.importance]
                     < _IMPORTANCE_RANK[ai_min_importance]
                 ):
-                    LOGGER.info("AI filter skipped a low-priority publication for %s", publication_to_send.ticker)
+                    LOGGER.info(
+                        "AI filter skipped a low-priority publication for %s",
+                        publication_to_send.ticker,
+                    )
                     mark_sent(publication_to_send, state, checked_at, "filtered")
                     _remember_report(publication_to_send, state)
                     continue
@@ -577,22 +706,41 @@ def run(
                     )
                     telegram_status = "dry-run"
                 else:
-                    telegram_status = telegram.send_message(format_message(publication_to_send))
+                    delivery_result = telegram.send_message(format_message(publication_to_send))
+                    telegram_status = "sent"
                 statistics.sent += 1
-                mark_sent(publication_to_send, state, checked_at, telegram_status)
+                mark_sent(
+                    publication_to_send,
+                    state,
+                    checked_at,
+                    telegram_status,
+                    delivery_result if not dry_run and isinstance(delivery_result, int) else None,
+                )
                 _remember_report(publication_to_send, state)
             statistics.successful += 1
             previous_status = state.source_status.get(source_config.id)
+            source_health = (
+                "degraded" if not fetched_publications and source_config.type != "fixture" else "ok"
+            )
             current_status = SourceStatus(
                 last_checked_at=checked_at,
-                status="ok",
-                last_successful_check=checked_at,
+                status=source_health,
+                last_successful_check=(checked_at if source_health == "ok" else None),
+                last_attempt_at=checked_at,
+                last_success_at=(checked_at if source_health == "ok" else None),
+                last_degraded_at=(checked_at if source_health == "degraded" else None),
                 consecutive_errors=0,
-                failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
+                failure_alert_sent=(
+                    previous_status.failure_alert_sent if previous_status else False
+                ),
             )
-            if not dry_run and current_status.failure_alert_sent and _send_health_message(
-                telegram,
-                _source_recovery_message(source_config, checked_at),
+            if (
+                not dry_run
+                and current_status.failure_alert_sent
+                and _send_health_message(
+                    telegram,
+                    _source_recovery_message(source_config, checked_at),
+                )
             ):
                 current_status.failure_alert_sent = False
                 telegram_messages += 1
@@ -603,28 +751,39 @@ def run(
             previous_status = state.source_status.get(source_config.id)
             current_status = SourceStatus(
                 last_checked_at=checked_at,
-                status="error",
+                status="failed",
                 error=_safe_error_reason(exc),
                 last_successful_check=(
                     previous_status.last_successful_check if previous_status else None
                 ),
+                last_attempt_at=checked_at,
                 consecutive_errors=(previous_status.consecutive_errors if previous_status else 0)
                 + 1,
-                failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
+                failure_alert_sent=(
+                    previous_status.failure_alert_sent if previous_status else False
+                ),
             )
             if (
                 not dry_run
                 and not current_status.failure_alert_sent
                 and _send_health_message(
-                telegram,
-                _source_failure_message(source_config, current_status),
+                    telegram,
+                    _source_failure_message(source_config, current_status),
                 )
             ):
                 current_status.failure_alert_sent = True
                 telegram_messages += 1
             state.source_status[source_config.id] = current_status
 
-    state.last_successful_check = checked_at
+    state.bootstrap_completed = state.bootstrap_completed or (
+        statistics.sources_checked > 0 and statistics.errors == 0
+    )
+    state.last_run_at = checked_at
+    if statistics.errors == 0:
+        state.last_successful_check = checked_at
+        state.last_fully_successful_run_at = checked_at
+    else:
+        state.last_degraded_run_at = checked_at
     duration_seconds = time.perf_counter() - started_at
     state.last_run_duration_seconds = duration_seconds
     state.last_run_new_publications = statistics.new_publications
@@ -719,15 +878,19 @@ def main() -> int:
     parser.add_argument("--send-test-message", action="store_true")
     parser.add_argument("--send-existing-item", action="store_true")
     parser.add_argument(
+        "--backfill", action="store_true", help="Explicitly deliver historical items"
+    )
+    parser.add_argument("--days", type=int, help="Limit explicit backfill to this many days")
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=os.getenv("DRY_RUN", "").strip().lower() == "true",
         help="Prepare messages without Telegram delivery or state writes",
     )
-    parser.add_argument(
-        "--workflow-name", default=os.getenv("GITHUB_WORKFLOW", "Dividend monitor")
-    )
+    parser.add_argument("--workflow-name", default=os.getenv("GITHUB_WORKFLOW", "Dividend monitor"))
     args = parser.parse_args()
+    if args.days is not None and (not args.backfill or args.days < 1):
+        parser.error("--days must be a positive value used together with --backfill")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if args.dry_run:
         telegram: TelegramClient | DryRunTelegram = DryRunTelegram()
@@ -739,7 +902,7 @@ def main() -> int:
     try:
         ai_client = client_from_environment()
         ai_filter_enabled, ai_min_importance = filter_from_environment()
-        run(
+        state = run(
             args.root,
             telegram,
             send_test_message=args.send_test_message,
@@ -749,7 +912,10 @@ def main() -> int:
             dry_run=args.dry_run,
             ai_filter_enabled=ai_filter_enabled,
             ai_min_importance=ai_min_importance,
+            backfill=args.backfill,
+            backfill_days=args.days,
         )
+        sources = load_sources(args.root / Path("config/sources.yaml"))
     except ValueError as exc:
         if not args.dry_run:
             _send_health_message(telegram, _run_failure_message(_safe_error_reason(exc)))
@@ -760,7 +926,7 @@ def main() -> int:
         if not args.dry_run:
             _send_health_message(telegram, _run_failure_message(safe_error))
         return 1
-    return 0
+    return run_exit_code(state, sources)
 
 
 if __name__ == "__main__":

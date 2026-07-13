@@ -26,6 +26,8 @@ class SourceHttpError(RuntimeError):
 class SourceHttpClient:
     """Bounded HTTP client shared by source adapters."""
 
+    MAX_RESPONSE_BYTES = 5_000_000
+
     def __init__(self, timeout_seconds: float, max_requests: int, max_retries: int) -> None:
         self._client = httpx.Client(
             timeout=httpx.Timeout(timeout_seconds, connect=min(timeout_seconds, 10.0)),
@@ -51,15 +53,33 @@ class SourceHttpClient:
                 response = self._client.get(url)
                 retryable_status = response.status_code in {429, 500, 502, 503, 504}
                 if retryable_status and attempt < self._max_retries:
-                    time.sleep(min(2**attempt, 4))
+                    time.sleep(_retry_delay(response, attempt))
                     continue
                 response.raise_for_status()
+                content_length = response.headers.get("content-length")
+                if content_length and int(content_length) > self.MAX_RESPONSE_BYTES:
+                    raise SourceHttpError("Source response exceeds the configured size limit")
+                if len(response.content) > self.MAX_RESPONSE_BYTES:
+                    raise SourceHttpError("Source response exceeds the configured size limit")
+                content_type = response.headers.get("content-type", "").casefold()
+                if content_type and not any(
+                    value in content_type for value in ("xml", "html", "text/", "json")
+                ):
+                    raise SourceHttpError("Source returned an unsupported content type")
                 return response
             except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError) as exc:
                 if attempt >= self._max_retries:
                     raise SourceHttpError(f"Temporary network error for {url}") from exc
                 time.sleep(min(2**attempt, 4))
         raise SourceHttpError(f"Could not fetch {url}")
+
+
+def _retry_delay(response: httpx.Response, attempt: int) -> float:
+    """Use server-provided retry timing while keeping source retries bounded."""
+    try:
+        return min(max(float(response.headers.get("Retry-After", "")), 0.0), 60.0)
+    except ValueError:
+        return float(min(2**attempt, 4))
 
 
 @contextmanager

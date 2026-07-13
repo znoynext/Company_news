@@ -1,7 +1,6 @@
 """Stable publication fingerprints, state checks, and retention cleanup."""
 
 import hashlib
-import json
 import re
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -26,8 +25,7 @@ def normalize_url(url: str) -> str:
     query = [
         (key, value)
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if not key.casefold().startswith("utm_")
-        and key.casefold() not in _TRACKING_PARAMETERS
+        if not key.casefold().startswith("utm_") and key.casefold() not in _TRACKING_PARAMETERS
     ]
     query.sort()
     path = parts.path or "/"
@@ -45,18 +43,27 @@ def normalized_title_hash(title: str) -> str:
 
 
 def fingerprint(publication: Publication) -> str:
+    """Return the v2 stable identity for a publication.
+
+    Mutable presentation fields such as the title, discovery time, and AI summary
+    deliberately do not participate in the identity.
+    """
     published_at = publication.published_at
     if published_at.tzinfo is None:
         published_at = published_at.replace(tzinfo=UTC)
-    components = {
-        "normalized_url": normalize_url(str(publication.url)) if publication.url else "",
-        "source_id": publication.source_id.strip(),
-        "publication_id": publication.external_id.strip() if publication.external_id else "",
-        "title_hash": normalized_title_hash(publication.title),
-        "published_at": published_at.astimezone(UTC).isoformat(),
-    }
-    payload = json.dumps(components, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+    if publication.external_id:
+        raw = f"{publication.source_id.strip()}:id:{publication.external_id.strip()}"
+    elif publication.url:
+        raw = f"url:{normalize_url(str(publication.url))}"
+    else:
+        raw = ":".join(
+            (
+                publication.ticker.strip().upper(),
+                _normalized_title(publication.title),
+                published_at.astimezone(UTC).date().isoformat(),
+            )
+        )
+    return f"sha256:{hashlib.sha256(raw.encode('utf-8')).hexdigest()}"
 
 
 def _legacy_deduplication_id(publication: Publication) -> str:
@@ -78,7 +85,7 @@ def deduplication_id(publication: Publication) -> str:
 def is_new(publication: Publication, state: MonitorState) -> bool:
     identifier = fingerprint(publication)
     legacy_identifier = _legacy_deduplication_id(publication)
-    return not any(
+    return identifier not in state.identity_index and not any(
         item.fingerprint == identifier
         or (item.fingerprint is None and item.deduplication_id == legacy_identifier)
         for item in state.sent_items
@@ -90,6 +97,7 @@ def mark_sent(
     state: MonitorState,
     now: datetime | None = None,
     telegram_message_status: str | None = None,
+    telegram_message_id: int | None = None,
 ) -> None:
     sent_at = now or datetime.now(UTC)
     state.sent_items.append(
@@ -105,6 +113,8 @@ def mark_sent(
             source_url=str(publication.url) if publication.url else None,
             fingerprint=fingerprint(publication),
             telegram_message_status=telegram_message_status or "sent",
+            telegram_message_id=telegram_message_id,
+            first_seen_at=publication.discovered_at,
             category=publication.category,
             importance=publication.importance,
             dividend_status=(
@@ -112,6 +122,7 @@ def mark_sent(
             ),
         )
     )
+    state.identity_index.add(fingerprint(publication))
 
 
 def cleanup_old_state(
@@ -124,8 +135,11 @@ def cleanup_old_state(
     state.sent_items = [
         item
         for item in state.sent_items
-        if (item.sent_at.replace(tzinfo=UTC) if item.sent_at.tzinfo is None else item.sent_at)
-        .astimezone(UTC)
+        if (
+            item.sent_at.replace(tzinfo=UTC) if item.sent_at.tzinfo is None else item.sent_at
+        ).astimezone(UTC)
         >= cutoff
     ]
+    # The compact identity index is intentionally retained: source archives can
+    # outlive the detailed notification history by years.
     return original_count - len(state.sent_items)
