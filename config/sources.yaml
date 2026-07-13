@@ -16,12 +16,12 @@ sources:
     type: rss
     enabled: true
     url: https://www.moex.com/export/news.aspx?cat=207
-    companies: [MOEX]
-    categories: [news, financial_report, corporate]
+    companies: [SBER, MOEX, LSNGP, LKOH, TRNFP, X5, TATNP, HEAD, IRAO, NMTP]
+    categories: [news, financial_report, dividend, corporate]
     primary: true
     timeout_seconds: 30
     max_retries: 2
-    status: working
+    status: limited
   - id: rosseti-lenenergo-press
     name: Россети Ленэнерго — официальный список новостей
     type: official_html
@@ -85,6 +85,39 @@ sources:
     companies: [IRAO]
     categories: [news, financial_report, dividend, corporate]
     primary: true
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: transneft-edisclosure-reports
+    name: ПАО «Транснефть» — отчёты эмитента в Интерфакс-ЦРКИ
+    type: official_html
+    enabled: true
+    url: https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5
+    companies: [TRNFP]
+    categories: [financial_report]
+    primary: false
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: tatneft-edisclosure-reports
+    name: ПАО «Татнефть» — отчёты эмитента в Интерфакс-ЦРКИ
+    type: official_html
+    enabled: true
+    url: https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5
+    companies: [TATNP]
+    categories: [financial_report]
+    primary: false
+    timeout_seconds: 30
+    max_retries: 2
+    status: limited
+  - id: nmtp-edisclosure-reports
+    name: ПАО «НМТП» — отчёты эмитента в Интерфакс-ЦРКИ
+    type: official_html
+    enabled: true
+    url: https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5
+    companies: [NMTP]
+    categories: [financial_report]
+    primary: false
     timeout_seconds: 30
     max_retries: 2
     status: limited

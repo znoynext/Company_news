@@ -7,7 +7,9 @@ import httpx
 
 from dividend_monitor.models import Company, SourceConfig
 from dividend_monitor.sources import (
+    EdisclosureReportsSource,
     LenenergoPressSource,
+    MoexCompaniesRssSource,
     MoexRssSource,
     OfficialNewsListSource,
     SberOfficialHtmlSource,
@@ -113,3 +115,50 @@ def test_official_news_adapter_requires_a_nearby_date(monkeypatch) -> None:
     assert item.title == "Компания опубликовала финансовые результаты"
     assert item.published_at == datetime(2026, 7, 13, tzinfo=UTC)
     assert item.category == "financial_report"
+
+
+def test_moex_companies_adapter_filters_unrequested_issuers(monkeypatch) -> None:
+    from dividend_monitor.sources import moex_companies
+
+    patch_http_client(
+        monkeypatch,
+        moex_companies,
+        FixtureResponse(Path("tests/fixtures/moex_companies_rss.xml")),
+    )
+    source = MoexCompaniesRssSource(
+        SourceConfig(
+            id="moex-all",
+            name="moex-all",
+            type="rss",
+            url="https://example.invalid/source",
+            companies=["TRNFP"],
+            categories=["news", "financial_report"],
+            max_retries=0,
+        ),
+        {"TRNFP": Company(name="Транснефть", ticker="TRNFP")},
+    )
+
+    items = source.fetch()
+
+    assert len(items) == 1
+    assert items[0].ticker == "TRNFP"
+
+
+def test_edisclosure_adapter_reads_only_issuer_reports(monkeypatch) -> None:
+    from dividend_monitor.sources import edisclosure
+
+    patch_http_client(
+        monkeypatch,
+        edisclosure,
+        FixtureResponse(Path("tests/fixtures/edisclosure_reports.html")),
+    )
+    source = EdisclosureReportsSource(
+        source_config("reports", "official_html", ["financial_report"]),
+        Company(name="Транснефть", ticker="TRNFP"),
+    )
+
+    items = source.fetch()
+
+    assert len(items) == 1
+    assert items[0].category == "financial_report"
+    assert items[0].published_at == datetime(2026, 4, 29, tzinfo=UTC)

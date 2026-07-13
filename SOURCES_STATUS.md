@@ -44,9 +44,19 @@
 
 | Источник | Компания | Статус |
 |---|---|---|
-| [MOEX Investor Relations RSS](https://www.moex.com/export/news.aspx?cat=207) | MOEX | `working` |
+| [MOEX Investor Relations RSS](https://www.moex.com/export/news.aspx?cat=207) | Все 10 компаний через фильтр названия/тикера | `limited` — один общий поток, строгая фильтрация по списку компаний |
 | [Россети Ленэнерго — пресс-центр](https://rosseti-lenenergo.ru/press/) | LSNGP | `working` |
 | [Сбербанк — раскрытие информации](https://www.sberbank.com/ru/investor-relations/disclosure/) | SBER | `unavailable` — сайт возвращает WAF-страницу `user_blocked`; защиту не обходили. |
+
+## Дополнительное раскрытие отчётности
+
+Для компаний без доступной автоматической ленты сайта добавлены карточки отчётов эмитента в Интерфакс-ЦРКИ:
+
+- [Транснефть](https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5) — `TRNFP`, `limited`;
+- [Татнефть](https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5) — `TATNP`, `limited`;
+- [НМТП](https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5) — `NMTP`, `limited`.
+
+Общая лента MOEX фильтруется по тикеру и русскому/английскому названию компании. Публикации других эмитентов в Telegram не отправляются.
 
 ## Безопасность
 
@@ -54,3 +64,4 @@
 - Неподтверждённые страницы не добавляются в `config/sources.yaml`.
 - CAPTCHA, WAF и другие защитные механизмы не обходятся.
 - Один сбой источника изолирован в `runner.py` и не останавливает обработку остальных источников.
+> Актуальное уточнение: для `TRNFP`, `TATNP` и `NMTP` автоматическое получение уже включено через проверенные страницы отчётности e-disclosure со статусом `limited`. Пометки `manual`/`unavailable` ниже относятся только к прямым сайтам компаний и не означают отключение мониторинга этих тикеров.

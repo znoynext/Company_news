@@ -12,8 +12,9 @@ from .config import load_companies, load_sources
 from .deduplication import is_new, mark_sent
 from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
 from .sources.base import FixtureSource, Source
+from .sources.edisclosure import EdisclosureReportsSource
 from .sources.lenenergo import LenenergoPressSource
-from .sources.moex import MoexRssSource
+from .sources.moex_companies import MoexCompaniesRssSource
 from .sources.official_news import OfficialNewsListSource
 from .sources.sber import SberOfficialHtmlSource
 from .storage import JsonStateStorage
@@ -52,15 +53,17 @@ def _escape(text: str, max_length: int) -> str:
 def _build_source(config: SourceConfig, companies: dict[str, Company], root: Path) -> Source:
     if config.type == "fixture":
         return FixtureSource(config, companies, root)
+    if config.id == "moex-investor-relations-rss":
+        return MoexCompaniesRssSource(config, companies)
     if len(config.companies) != 1:
         raise ValueError(f"Source '{config.id}' must target exactly one company")
     company = companies[config.companies[0]]
-    if config.id == "moex-investor-relations-rss":
-        return MoexRssSource(config, company)
     if config.id == "rosseti-lenenergo-press":
         return LenenergoPressSource(config, company)
     if config.id == "sber-official-disclosure":
         return SberOfficialHtmlSource(config, company)
+    if config.type == "official_html" and config.id.endswith("-edisclosure-reports"):
+        return EdisclosureReportsSource(config, company)
     if config.type == "official_html" and config.id in {
         "lukoil-official-news",
         "x5-official-news",

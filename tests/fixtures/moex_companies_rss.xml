@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <guid>issuer-001</guid>
+      <title>ПАО «Транснефть» раскрыло результаты</title>
+      <description>Финансовая отчетность эмитента.</description>
+      <link>https://www.moex.com/n10001</link>
+      <pubDate>Mon, 13 Jul 2026 09:45:00 GMT</pubDate>
+    </item>
+    <item>
+      <guid>other-001</guid>
+      <title>Новости другого эмитента</title>
+      <description>Эта публикация не должна попасть в монитор.</description>
+      <link>https://www.moex.com/n10002</link>
+      <pubDate>Mon, 13 Jul 2026 09:46:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
