@@ -54,6 +54,53 @@ def test_runner_sends_fixture_once(tmp_path: Path, monkeypatch) -> None:
     assert "Сбербанк" in telegram.messages[0]
 
 
+def test_source_failure_alert_is_sent_once_and_recovery_is_reported(
+    tmp_path: Path, monkeypatch
+) -> None:
+    telegram = FakeTelegram()
+    attempts = 0
+
+    class FlakySource:
+        def fetch(self):
+            nonlocal attempts
+            attempts += 1
+            if attempts <= 3:
+                raise RuntimeError("temporary failure")
+            return []
+
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: SourcesConfig(
+            version=1,
+            sources=[
+                SourceConfig(
+                    id="flaky",
+                    name="Flaky source",
+                    type="fixture",
+                    path="unused",
+                    companies=["SBER"],
+                    categories=["news"],
+                )
+            ],
+        ),
+    )
+    monkeypatch.setattr(runner_module, "_build_source", lambda *_args: FlakySource())
+
+    states = [
+        run(Path(__file__).parents[1], telegram, state_path=tmp_path / "state.json")
+        for _ in range(4)
+    ]
+
+    assert len(telegram.messages) == 2
+    assert "Источник недоступен" in telegram.messages[0]
+    assert "Источник восстановлен" in telegram.messages[1]
+    assert states[2].source_status["flaky"].consecutive_errors == 3
+    assert states[2].source_status["flaky"].failure_alert_sent is True
+    assert states[3].source_status["flaky"].status == "ok"
+    assert states[3].source_status["flaky"].failure_alert_sent is False
+
+
 def test_test_message_contains_connection_details_without_token() -> None:
     message = format_test_message(
         "0.1.0",

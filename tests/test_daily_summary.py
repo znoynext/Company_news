@@ -67,7 +67,10 @@ def test_daily_summary_is_not_sent_twice_on_same_day(tmp_path: Path) -> None:
     now = datetime(2026, 7, 14, 8, 17, tzinfo=UTC)
     state_path = tmp_path / "state.json"
     JsonStateStorage(state_path).save(
-        MonitorState(sent_items=[_item(now, "Important", category="corporate")])
+        MonitorState(
+            last_successful_check=now,
+            sent_items=[_item(now, "Important", category="corporate")],
+        )
     )
     telegram = FakeTelegram()
 
@@ -75,3 +78,17 @@ def test_daily_summary_is_not_sent_twice_on_same_day(tmp_path: Path) -> None:
     assert not send_daily_summary(tmp_path, telegram, state_path=Path("state.json"), now=now)
     assert len(telegram.messages) == 1
     assert JsonStateStorage(state_path).load().last_daily_summary_date == "2026-07-14"
+
+
+def test_stale_workflow_warning_is_not_repeated(tmp_path: Path) -> None:
+    now = datetime(2026, 7, 14, 8, 17, tzinfo=UTC)
+    state_path = tmp_path / "state.json"
+    JsonStateStorage(state_path).save(
+        MonitorState(last_successful_check=now - timedelta(hours=3))
+    )
+    telegram = FakeTelegram()
+
+    assert send_daily_summary(tmp_path, telegram, state_path=Path("state.json"), now=now)
+    assert not send_daily_summary(tmp_path, telegram, state_path=Path("state.json"), now=now)
+    assert len(telegram.messages) == 2
+    assert sum("workflow не выполнялся" in message for message in telegram.messages) == 1

@@ -18,7 +18,10 @@ class JsonStateStorage:
             return MonitorState()
         try:
             with self.path.open("r", encoding="utf-8") as file:
-                return MonitorState.model_validate(json.load(file))
+                state = MonitorState.model_validate(json.load(file))
+                if state.schema_version < MonitorState.model_fields["schema_version"].default:
+                    state.schema_version = MonitorState.model_fields["schema_version"].default
+                return state
         except (OSError, json.JSONDecodeError, ValueError) as exc:
             raise ValueError(f"Invalid state file: {self.path}") from exc
 

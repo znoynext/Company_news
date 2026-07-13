@@ -149,12 +149,21 @@ class SourceStatus(StrictModel):
     last_checked_at: datetime
     status: Literal["ok", "error"]
     error: str | None = None
+    last_successful_check: datetime | None = None
+    consecutive_errors: int = Field(default=0, ge=0)
+    failure_alert_sent: bool = False
 
 
 class MonitorState(StrictModel):
-    schema_version: int = 2
+    schema_version: int = 3
     last_successful_check: datetime | None = None
     last_daily_summary_date: str | None = None
+    last_weekly_health_report_date: str | None = None
+    workflow_alert_sent: bool = False
+    last_run_duration_seconds: float | None = Field(default=None, ge=0)
+    last_run_new_publications: int = Field(default=0, ge=0)
+    last_run_telegram_messages: int = Field(default=0, ge=0)
+    last_run_errors: int = Field(default=0, ge=0)
     sent_items: list[SentItem] = Field(default_factory=list)
     financial_reports: list[Publication] = Field(default_factory=list)
     source_status: dict[str, SourceStatus] = Field(default_factory=dict)

@@ -10,7 +10,9 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from .config import load_sources
 from .deduplication import cleanup_old_state
+from .health import build_weekly_health_report, build_workflow_stale_warning
 from .models import MonitorState, SentItem
 from .storage import JsonStateStorage
 from .telegram import TelegramClient, TelegramConfigurationError
@@ -91,16 +93,37 @@ def send_daily_summary(
     state = storage.load()
     checked_at = (now or datetime.now(UTC)).astimezone(UTC)
     cleanup_old_state(state, checked_at)
+    messages: list[str] = []
     message = build_daily_summary(state, checked_at)
-    if message is None:
+    if message is not None:
+        messages.append(message)
+    stale_warning = build_workflow_stale_warning(state, checked_at)
+    if stale_warning is not None and not state.workflow_alert_sent:
+        messages.append(stale_warning)
+    weekly_report = None
+    if checked_at.isoweekday() == 1:
+        sources = load_sources(root / Path("config/sources.yaml"))
+        weekly_report = build_weekly_health_report(state, sources, checked_at)
+    if weekly_report is not None:
+        messages.append(weekly_report)
+    if not messages:
         LOGGER.info("Daily summary already sent for %s", checked_at.date())
+        state.workflow_alert_sent = stale_warning is not None
         storage.save(state)
         _print_run_metrics(started_at, telegram_messages=0)
         return False
-    telegram.send_message(message)
-    state.last_daily_summary_date = checked_at.date().isoformat()
+    for item in messages:
+        telegram.send_message(item)
+    if message is not None:
+        state.last_daily_summary_date = checked_at.date().isoformat()
+    if stale_warning is not None:
+        state.workflow_alert_sent = True
+    elif state.workflow_alert_sent:
+        state.workflow_alert_sent = False
+    if weekly_report is not None:
+        state.last_weekly_health_report_date = checked_at.date().isoformat()
     storage.save(state)
-    _print_run_metrics(started_at, telegram_messages=1)
+    _print_run_metrics(started_at, telegram_messages=len(messages))
     return True
 
 

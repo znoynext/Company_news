@@ -18,7 +18,14 @@ from .config import load_companies, load_sources
 from .deduplication import cleanup_old_state, is_new, mark_sent
 from .dividends import classify_dividend_event
 from .financial_reports import detect_report_context
-from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
+from .models import (
+    Company,
+    MonitorState,
+    Publication,
+    RunStatistics,
+    SourceConfig,
+    SourceStatus,
+)
 from .sources.base import FixtureSource, Source
 from .sources.edisclosure import EdisclosureReportsSource
 from .sources.lenenergo import LenenergoPressSource
@@ -361,9 +368,11 @@ def run(
     checked_at = datetime.now(UTC)
     cleanup_old_state(state, checked_at)
     statistics = run_statistics or RunStatistics()
+    telegram_messages = 0
 
     if send_test_message:
         telegram.send_message(format_test_message(__version__, workflow_name, checked_at))
+        telegram_messages += 1
 
     for source_config in sources_config.sources:
         if not source_config.enabled:
@@ -383,17 +392,50 @@ def run(
                 else:
                     statistics.duplicates += 1
             statistics.successful += 1
-            state.source_status[source_config.id] = SourceStatus(
-                last_checked_at=checked_at, status="ok"
+            previous_status = state.source_status.get(source_config.id)
+            current_status = SourceStatus(
+                last_checked_at=checked_at,
+                status="ok",
+                last_successful_check=checked_at,
+                consecutive_errors=0,
+                failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
             )
+            if current_status.failure_alert_sent and _send_health_message(
+                telegram,
+                _source_recovery_message(source_config, checked_at),
+            ):
+                current_status.failure_alert_sent = False
+                telegram_messages += 1
+            state.source_status[source_config.id] = current_status
         except Exception as exc:  # isolate one source from the rest of the run
             statistics.errors += 1
             LOGGER.exception("Source '%s' failed", source_config.id)
-            state.source_status[source_config.id] = SourceStatus(
-                last_checked_at=checked_at, status="error", error=str(exc)
+            previous_status = state.source_status.get(source_config.id)
+            current_status = SourceStatus(
+                last_checked_at=checked_at,
+                status="error",
+                error=str(exc),
+                last_successful_check=(
+                    previous_status.last_successful_check if previous_status else None
+                ),
+                consecutive_errors=(previous_status.consecutive_errors if previous_status else 0)
+                + 1,
+                failure_alert_sent=(previous_status.failure_alert_sent if previous_status else False),
             )
+            if current_status.consecutive_errors >= 3 and not current_status.failure_alert_sent and _send_health_message(
+                telegram,
+                _source_failure_message(source_config, current_status),
+            ):
+                current_status.failure_alert_sent = True
+                telegram_messages += 1
+            state.source_status[source_config.id] = current_status
 
     state.last_successful_check = checked_at
+    duration_seconds = time.perf_counter() - started_at
+    state.last_run_duration_seconds = duration_seconds
+    state.last_run_new_publications = statistics.new_publications
+    state.last_run_telegram_messages = statistics.sent + telegram_messages
+    state.last_run_errors = statistics.errors
     state_storage.save(state)
     LOGGER.info(
         "Источников проверено: %s; Успешно: %s; Ошибки: %s; "
@@ -405,12 +447,47 @@ def run(
         statistics.sent,
         statistics.duplicates,
     )
-    print(f"Duration: {time.perf_counter() - started_at:.2f}s")
+    print(f"Duration: {duration_seconds:.2f}s")
     print(f"Sources: {statistics.sources_checked}")
     print(f"New publications: {statistics.new_publications}")
-    print(f"Telegram messages: {statistics.sent + (1 if send_test_message else 0)}")
+    print(f"Telegram messages: {state.last_run_telegram_messages}")
     print(f"Errors: {statistics.errors}")
     return state
+
+
+def _send_health_message(telegram: TelegramClient, message: str) -> bool:
+    try:
+        telegram.send_message(message)
+    except Exception:  # keep a health notification failure isolated from monitoring
+        LOGGER.exception("Health notification failed")
+        return False
+    return True
+
+
+def _source_failure_message(source: SourceConfig, status: SourceStatus) -> str:
+    error = html.escape((status.error or "неизвестная ошибка")[:500])
+    return (
+        "⚠️ <b>Источник недоступен</b>\n\n"
+        f"Источник: <b>{html.escape(source.name)}</b>\n"
+        f"Ошибок подряд: <b>{status.consecutive_errors}</b>\n"
+        f"Последняя успешная проверка: <b>"
+        f"{_format_health_datetime(status.last_successful_check)}</b>\n"
+        f"Ошибка: <code>{error}</code>"
+    )
+
+
+def _source_recovery_message(source: SourceConfig, checked_at: datetime) -> str:
+    return (
+        "✅ <b>Источник восстановлен</b>\n\n"
+        f"Источник: <b>{html.escape(source.name)}</b>\n"
+        f"Успешная проверка: <b>{_format_health_datetime(checked_at)}</b>"
+    )
+
+
+def _format_health_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "никогда"
+    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def main() -> int:
