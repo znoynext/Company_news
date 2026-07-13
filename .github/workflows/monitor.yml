@@ -23,6 +23,7 @@ concurrency:
 
 permissions:
   contents: write
+  models: read
 
 jobs:
   monitor:
@@ -30,6 +31,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      models: read
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -48,6 +50,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEND_TEST_MESSAGE: ${{ inputs.send_test_message || false }}
           SEND_EXISTING_ITEM: ${{ inputs.send_existing_item || false }}
           WORKFLOW_NAME: ${{ github.workflow }}

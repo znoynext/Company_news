@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import dividend_monitor.runner as runner_module
+from dividend_monitor.github_models import GitHubModelsUnavailable
 from dividend_monitor.models import (
     MonitorState,
     Publication,
@@ -255,6 +256,83 @@ def test_format_message_limits_description_to_500_characters() -> None:
 
     assert len(description) <= 500
     assert description.endswith("…")
+
+
+def test_runner_enriches_only_new_publications_with_ai(tmp_path: Path, monkeypatch) -> None:
+    root = Path(__file__).parents[1]
+    telegram = FakeTelegram()
+    state_path = tmp_path / "state.json"
+
+    class FakeAi:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def enhance(self, publication: Publication) -> Publication:
+            self.calls += 1
+            return publication.model_copy(
+                update={"ai_summary": "Краткое AI-резюме.", "importance": "high"}
+            )
+
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: SourcesConfig(
+            version=1,
+            sources=[
+                SourceConfig(
+                    id="local-fixture",
+                    name="Local fixture",
+                    type="fixture",
+                    path="tests/fixtures/news.xml",
+                    companies=["SBER"],
+                    categories=["news"],
+                )
+            ],
+        ),
+    )
+    ai = FakeAi()
+
+    first = run(root, telegram, state_path=state_path, ai_client=ai)
+    second = run(root, telegram, state_path=state_path, ai_client=ai)
+
+    assert ai.calls == 1
+    assert "Краткое AI-резюме." in telegram.messages[0]
+    assert first.sent_items[0].importance == "high"
+    assert len(second.sent_items) == 1
+
+
+def test_runner_delivers_deterministic_message_when_ai_is_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = Path(__file__).parents[1]
+    telegram = FakeTelegram()
+
+    class UnavailableAi:
+        def enhance(self, publication: Publication) -> Publication:
+            raise GitHubModelsUnavailable("GitHub Models is unavailable (HTTP 429)")
+
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: SourcesConfig(
+            version=1,
+            sources=[
+                SourceConfig(
+                    id="local-fixture",
+                    name="Local fixture",
+                    type="fixture",
+                    path="tests/fixtures/news.xml",
+                    companies=["SBER"],
+                    categories=["news"],
+                )
+            ],
+        ),
+    )
+
+    state = run(root, telegram, state_path=tmp_path / "state.json", ai_client=UnavailableAi())
+
+    assert len(telegram.messages) == 1
+    assert state.sent_items[0].telegram_message_status == "sent"
 
 
 def test_format_message_stays_within_telegram_limit_for_hostile_long_text() -> None:

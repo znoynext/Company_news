@@ -18,6 +18,7 @@ from .config import load_companies, load_sources
 from .deduplication import cleanup_old_state, is_new, mark_sent
 from .dividends import classify_dividend_event
 from .financial_reports import detect_report_context
+from .github_models import GitHubModelsClient, GitHubModelsUnavailable
 from .models import (
     Company,
     MonitorState,
@@ -316,7 +317,8 @@ def _format_dividend_message_v2(publication: Publication) -> str:
 def format_message(publication: Publication) -> str:
     if publication.dividend_event:
         return _format_dividend_message_v2(publication)
-    description = summarize(publication.description, max_length=500) or "Описание отсутствует."
+    description = publication.ai_summary or summarize(publication.description, max_length=500)
+    description = description or "Описание отсутствует."
     importance = _IMPORTANCE_LABELS[publication.importance]
     report_details = _format_report_details(publication)
     message = (
@@ -404,6 +406,7 @@ def run(
     workflow_name: str = "Dividend monitor",
     run_statistics: RunStatistics | None = None,
     send_existing_item: bool = False,
+    ai_client: GitHubModelsClient | None = None,
 ) -> MonitorState:
     started_at = time.perf_counter()
     state_storage = JsonStateStorage(root / state_path)
@@ -444,10 +447,17 @@ def run(
                 if is_new(publication, state):
                     statistics.new_publications += 1
                     publication_to_send = _report_with_comparisons(publication, state)
+                    if ai_client is not None:
+                        try:
+                            publication_to_send = ai_client.enhance(publication_to_send)
+                        except GitHubModelsUnavailable as exc:
+                            # AI is optional: stop spending requests for this run and deliver as usual.
+                            LOGGER.warning("GitHub Models disabled for this run: %s", exc)
+                            ai_client = None
                     telegram_status = telegram.send_message(format_message(publication_to_send))
                     statistics.sent += 1
-                    mark_sent(publication, state, checked_at, telegram_status)
-                    _remember_report(publication, state)
+                    mark_sent(publication_to_send, state, checked_at, telegram_status)
+                    _remember_report(publication_to_send, state)
                 else:
                     statistics.duplicates += 1
             statistics.successful += 1
@@ -569,6 +579,7 @@ def main() -> int:
         send_test_message=args.send_test_message,
         send_existing_item=args.send_existing_item,
         workflow_name=args.workflow_name,
+        ai_client=GitHubModelsClient.from_environment(),
     )
     return 0
 

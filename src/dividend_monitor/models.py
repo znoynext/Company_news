@@ -113,6 +113,7 @@ class Publication(StrictModel):
     category: Category
     title: str = Field(min_length=1)
     description: str = ""
+    ai_summary: str | None = Field(default=None, max_length=500)
     published_at: datetime
     url: HttpUrl | None = None
     external_id: str | None = None
@@ -155,7 +156,7 @@ class SourceStatus(StrictModel):
 
 
 class MonitorState(StrictModel):
-    schema_version: int = 3
+    schema_version: int = 4
     last_successful_check: datetime | None = None
     last_daily_summary_date: str | None = None
     last_weekly_health_report_date: str | None = None
