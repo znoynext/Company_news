@@ -2,6 +2,8 @@
 
 import json
 import os
+import re
+import sys
 from typing import Any
 
 import httpx
@@ -13,6 +15,7 @@ from .summarizer import summarize
 _ENDPOINT = "https://models.github.ai/inference/chat/completions"
 _DEFAULT_MODEL = "microsoft/phi-4-mini-instruct"
 _MAX_SOURCE_TEXT = 3_500
+_JSON_FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL | re.IGNORECASE)
 
 
 class GitHubModelsUnavailable(RuntimeError):
@@ -108,7 +111,7 @@ class GitHubModelsClient:
             content = body["choices"][0]["message"]["content"]
             if not isinstance(content, str):
                 raise TypeError("Completion content is not text")
-            enhancement = _EnhancementResponse.model_validate(json.loads(content))
+            enhancement = _EnhancementResponse.model_validate(json.loads(_json_content(content)))
         except (IndexError, KeyError, TypeError, json.JSONDecodeError, ValidationError) as exc:
             raise GitHubModelsUnavailable("GitHub Models returned an invalid completion") from exc
 
@@ -118,3 +121,40 @@ class GitHubModelsClient:
         return publication.model_copy(
             update={"ai_summary": summary, "importance": enhancement.importance}
         )
+
+
+def _json_content(content: str) -> str:
+    """Accept a JSON object returned directly or inside a Markdown JSON fence."""
+    stripped = content.strip()
+    match = _JSON_FENCE.fullmatch(stripped)
+    return match.group(1).strip() if match else stripped
+
+
+def verify_from_environment() -> str:
+    """Run one synthetic inference without Telegram, sources, or state changes."""
+    client = GitHubModelsClient.from_environment()
+    if client is None:
+        raise GitHubModelsUnavailable("GITHUB_TOKEN is unavailable for the GitHub Models probe")
+    enhanced = client.enhance(
+        Publication(
+            source_id="github-models-probe",
+            company="Проверка GitHub Models",
+            ticker="PROBE",
+            category="news",
+            title="Компания опубликовала квартальные результаты",
+            description="Выручка выросла, компания подтвердила публикацию отчётности.",
+            published_at="2026-07-13T00:00:00Z",
+        )
+    )
+    return f"GitHub Models probe succeeded: importance={enhanced.importance}"
+
+
+def main() -> int:
+    if sys.argv[1:] != ["--verify"]:
+        raise SystemExit("Usage: python -m dividend_monitor.github_models --verify")
+    print(verify_from_environment())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

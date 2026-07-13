@@ -81,3 +81,22 @@ def test_enhance_rejects_invalid_model_output() -> None:
 
     with pytest.raises(GitHubModelsUnavailable, match="invalid completion"):
         client.enhance(_publication())
+
+
+def test_enhance_accepts_json_inside_markdown_fence() -> None:
+    content = """```json
+{"summary":"Компания опубликовала отчётность.","importance":"medium"}
+```"""
+    client = GitHubModelsClient(
+        "temporary-token",
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+            )
+        ),
+    )
+
+    enhanced = client.enhance(_publication())
+
+    assert enhanced.ai_summary == "Компания опубликовала отчётность."
+    assert enhanced.importance == "medium"

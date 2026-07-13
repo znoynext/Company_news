@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_ai:
+        description: "Verify GitHub Models without sending Telegram messages or changing state"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: dividend-monitor
@@ -53,9 +58,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEND_TEST_MESSAGE: ${{ inputs.send_test_message || false }}
           SEND_EXISTING_ITEM: ${{ inputs.send_existing_item || false }}
+          VERIFY_AI: ${{ inputs.verify_ai || false }}
           WORKFLOW_NAME: ${{ github.workflow }}
         shell: bash
         run: |
+          if [ "$VERIFY_AI" = "true" ]; then
+            python -m dividend_monitor.github_models --verify
+            exit 0
+          fi
           args=()
           if [ "$SEND_EXISTING_ITEM" = "true" ]; then
             args+=(--send-existing-item)
