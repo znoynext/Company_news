@@ -1,7 +1,13 @@
 {
-  "schema_version": 1,
-  "last_successful_check": "2026-07-13T16:13:34.345574Z",
+  "schema_version": 3,
+  "last_successful_check": "2026-07-13T18:02:38.956421Z",
   "last_daily_summary_date": null,
+  "last_weekly_health_report_date": null,
+  "workflow_alert_sent": false,
+  "last_run_duration_seconds": 111.55626844999998,
+  "last_run_new_publications": 10,
+  "last_run_telegram_messages": 10,
+  "last_run_errors": 7,
   "sent_items": [
     {
       "deduplication_id": "sha256:8af03881883e1fd4fcfde44cf9e36d83ba90aedc701e8bf3536b78835f337ef2",
@@ -9,7 +15,15 @@
       "title": "Сбербанк опубликовал сообщение",
       "url": "https://example.invalid/sberbank/fixture-001",
       "published_at": "2026-07-13T12:00:00Z",
-      "sent_at": "2026-07-13T16:13:34.345574Z"
+      "sent_at": "2026-07-13T16:13:34.345574Z",
+      "source_id": "legacy",
+      "publication_id": null,
+      "source_url": null,
+      "fingerprint": null,
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
     },
     {
       "deduplication_id": "sha256:2387f0cbc665dcb1adc9b6f6093552aac9a2c709b966a0e3cb318063a9af715d",
@@ -17,7 +31,15 @@
       "title": "Moscow Exchange Trading Volumes in June 2026",
       "url": "https://www.moex.com/n101694",
       "published_at": "2026-07-01T14:32:13Z",
-      "sent_at": "2026-07-13T16:13:34.345574Z"
+      "sent_at": "2026-07-13T16:13:34.345574Z",
+      "source_id": "legacy",
+      "publication_id": null,
+      "source_url": null,
+      "fingerprint": null,
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
     },
     {
       "deduplication_id": "sha256:93caf6794b757a0680ea4f93a021f484c66605597bb527db4dbff98d502c2cec",
@@ -25,24 +47,258 @@
       "title": "Moscow Exchange Trading Volumes in May 2026",
       "url": "https://www.moex.com/n100591",
       "published_at": "2026-06-01T14:31:36Z",
-      "sent_at": "2026-07-13T16:13:34.345574Z"
+      "sent_at": "2026-07-13T16:13:34.345574Z",
+      "source_id": "legacy",
+      "publication_id": null,
+      "source_url": null,
+      "fingerprint": null,
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:e5b10b148ef38f31601945cecee002f6aac70c88c5ff1e2955338ae8a7c53e5f",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "29/01/2026 - LUKOIL AGREES WITH CARLYLE ON SALE OF INTERNATIONAL ASSETS",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-agrees-with-carlyle-on-sale-of",
+      "published_at": "2026-01-29T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-agrees-with-carlyle-on-sale-of",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-agrees-with-carlyle-on-sale-of",
+      "fingerprint": "sha256:e5b10b148ef38f31601945cecee002f6aac70c88c5ff1e2955338ae8a7c53e5f",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:7dcb9f183ad9f71ebcd64b1be03854965185df5a8bca7f063e7cbcbeb051f09a",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "19/11/2025 - PJSC LUKOIL STATEMENT",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_2",
+      "published_at": "2025-11-19T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_2",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_2",
+      "fingerprint": "sha256:7dcb9f183ad9f71ebcd64b1be03854965185df5a8bca7f063e7cbcbeb051f09a",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:da1f841d2c40945e8bc84059009756ece072a21c01329648f337405c3a3861a3",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "14/11/2025 - PJSC LUKOIL STATEMENT",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_1",
+      "published_at": "2025-11-14T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_1",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/pjsc-lukoil-statement_1",
+      "fingerprint": "sha256:da1f841d2c40945e8bc84059009756ece072a21c01329648f337405c3a3861a3",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:1df596b99b23ed707fe700099fc55aa5871ccc5a423535cbdcf5405f34b02b5e",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "30/10/2025 - LUKOIL RECEIVES OFFER FROM GUNVOR TO PURCHASE INTERNATIONAL ASSETS",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-receives-offer-from-gunvor-to-purchase",
+      "published_at": "2025-10-30T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-receives-offer-from-gunvor-to-purchase",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-receives-offer-from-gunvor-to-purchase",
+      "fingerprint": "sha256:1df596b99b23ed707fe700099fc55aa5871ccc5a423535cbdcf5405f34b02b5e",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:419c24810a26d07450584c1cc8f642a7df3af24e315c8d3c0ec897faef1499e4",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "27/10/2025 - ON INTERNATIONAL ASSETS OF LUKOIL GROUP",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/on-international-assets-of-lukoil-group",
+      "published_at": "2025-10-27T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/on-international-assets-of-lukoil-group",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/on-international-assets-of-lukoil-group",
+      "fingerprint": "sha256:419c24810a26d07450584c1cc8f642a7df3af24e315c8d3c0ec897faef1499e4",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:26f99d15b6f6041cb4b28f12227f6a5e185aa5f15fae79881dea5999f6579317",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "18/08/2025 - LUKOIL SUPPORTS BRICS ROAD RALLY AS ITS GENERAL PARTNER",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-supports-brics-road-rally-as-its-general",
+      "published_at": "2025-08-18T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-supports-brics-road-rally-as-its-general",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-supports-brics-road-rally-as-its-general",
+      "fingerprint": "sha256:26f99d15b6f6041cb4b28f12227f6a5e185aa5f15fae79881dea5999f6579317",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:848b84e08e1d5357a33df9e04cabc974d82c0c9e1274f359ab45b2a5b18c324e",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "10/07/2025 - LUKOIL RELEASES 2024 SUSTAINABILITY REPORT",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-releases-2024-sustainability-report",
+      "published_at": "2025-07-10T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-releases-2024-sustainability-report",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-releases-2024-sustainability-report",
+      "fingerprint": "sha256:848b84e08e1d5357a33df9e04cabc974d82c0c9e1274f359ab45b2a5b18c324e",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:988ef1a7cbf1d4ef01924eb967e21995e21b42ee3639398e747120471cb4cdba",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "24/02/2025 - LUKOIL’S TALENT DEVELOPMENT PROGRAMME RECEIVES AWARD AT AN INTERANTIONAL CONTEST",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoils-talent-development-programme-receives",
+      "published_at": "2025-02-24T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoils-talent-development-programme-receives",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoils-talent-development-programme-receives",
+      "fingerprint": "sha256:988ef1a7cbf1d4ef01924eb967e21995e21b42ee3639398e747120471cb4cdba",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:5b51d9ef2923324af38ec57c41cd634c90869e2656e323ddc9cba77d07fbbebb",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "05/12/2024 - EXTRAORDINARY GENERAL SHAREHOLDERS MEETING OF LUKOIL APPROVES INTERIM DIVIDENDS",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/extraordinary-general-shareholders-meeting-of_11",
+      "published_at": "2024-12-05T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/extraordinary-general-shareholders-meeting-of_11",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/extraordinary-general-shareholders-meeting-of_11",
+      "fingerprint": "sha256:5b51d9ef2923324af38ec57c41cd634c90869e2656e323ddc9cba77d07fbbebb",
+      "telegram_message_status": "sent",
+      "category": "dividend",
+      "importance": "medium",
+      "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:340ef8ed48390ca0f72439a3e69992925f7b1d99fb6c1f4a4cb873288f5e6970",
+      "company": "ПАО «ЛУКОЙЛ»",
+      "title": "05/12/2024 - LUKOIL SUSTAINABILITY REPORT FOR 2023 WINS AN INTERNATIONAL AWARDS",
+      "url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-sustainability-report-for-2023-wins-an",
+      "published_at": "2024-12-05T00:00:00Z",
+      "sent_at": "2026-07-13T18:02:38.956421Z",
+      "source_id": "lukoil-official-news",
+      "publication_id": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-sustainability-report-for-2023-wins-an",
+      "source_url": "https://www.lukoil.com/PressCenter/Pressreleases/Pressrelease/lukoil-sustainability-report-for-2023-wins-an",
+      "fingerprint": "sha256:340ef8ed48390ca0f72439a3e69992925f7b1d99fb6c1f4a4cb873288f5e6970",
+      "telegram_message_status": "sent",
+      "category": "news",
+      "importance": "medium",
+      "dividend_status": null
     }
   ],
+  "financial_reports": [],
   "source_status": {
     "local-fixture": {
-      "last_checked_at": "2026-07-13T16:13:34.345574Z",
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
       "status": "ok",
-      "error": null
+      "error": null,
+      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "consecutive_errors": 0,
+      "failure_alert_sent": false
     },
     "moex-investor-relations-rss": {
-      "last_checked_at": "2026-07-13T16:13:34.345574Z",
-      "status": "ok",
-      "error": null
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Temporary network error for https://www.moex.com/export/news.aspx?cat=207",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
     },
     "rosseti-lenenergo-press": {
-      "last_checked_at": "2026-07-13T16:13:34.345574Z",
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
       "status": "error",
-      "error": "Temporary network error for https://rosseti-lenenergo.ru/press/"
+      "error": "Temporary network error for https://rosseti-lenenergo.ru/press/",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
+    },
+    "lukoil-official-news": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "ok",
+      "error": null,
+      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "consecutive_errors": 0,
+      "failure_alert_sent": false
+    },
+    "x5-official-news": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Temporary network error for https://x5.ru/ru/investors/",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
+    },
+    "headhunter-official-news": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "ok",
+      "error": null,
+      "last_successful_check": "2026-07-13T18:02:38.956421Z",
+      "consecutive_errors": 0,
+      "failure_alert_sent": false
+    },
+    "interrao-official-news": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Temporary network error for https://www.interrao.ru/press-center/news/",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
+    },
+    "transneft-edisclosure-reports": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
+    },
+    "tatneft-edisclosure-reports": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
+    },
+    "nmtp-edisclosure-reports": {
+      "last_checked_at": "2026-07-13T18:02:38.956421Z",
+      "status": "error",
+      "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+      "last_successful_check": null,
+      "consecutive_errors": 1,
+      "failure_alert_sent": false
     }
   }
 }
