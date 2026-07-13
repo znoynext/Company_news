@@ -140,7 +140,7 @@ def test_moex_companies_adapter_filters_unrequested_issuers(monkeypatch) -> None
 
     items = source.fetch()
 
-    assert len(items) == 1
+    assert len(items) == 2
     assert items[0].ticker == "TRNFP"
 
 

@@ -9,6 +9,13 @@
       <pubDate>Mon, 13 Jul 2026 09:45:00 GMT</pubDate>
     </item>
     <item>
+      <guid>issuer-002</guid>
+      <title>TRNFP: сообщение эмитента</title>
+      <description>Публикация с тикером эмитента.</description>
+      <link>https://www.moex.com/n10003</link>
+      <pubDate>Mon, 13 Jul 2026 10:30:00 GMT</pubDate>
+    </item>
+    <item>
       <guid>other-001</guid>
       <title>Новости другого эмитента</title>
       <description>Эта публикация не должна попасть в монитор.</description>

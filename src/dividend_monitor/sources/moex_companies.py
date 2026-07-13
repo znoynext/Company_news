@@ -52,7 +52,7 @@ class MoexCompaniesRssSource(Source):
             raw_url = entry.get("link")
             url = normalize_url(raw_url) if raw_url else None
             for ticker in self.config.companies:
-                aliases = COMPANY_ALIASES.get(ticker, (ticker.casefold(),))
+                aliases = (*COMPANY_ALIASES.get(ticker, ()), ticker.casefold())
                 if not any(alias in combined for alias in aliases):
                     continue
                 company = self.companies[ticker]
