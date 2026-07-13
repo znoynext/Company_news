@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from dividend_monitor.models import Publication
+import dividend_monitor.runner as runner_module
+from dividend_monitor.models import Publication, SourceConfig, SourcesConfig
 from dividend_monitor.runner import format_message, format_test_message, run
 
 
@@ -13,10 +14,27 @@ class FakeTelegram:
         self.messages.append(text)
 
 
-def test_runner_sends_fixture_once(tmp_path: Path) -> None:
+def test_runner_sends_fixture_once(tmp_path: Path, monkeypatch) -> None:
     root = Path(__file__).parents[1]
     telegram = FakeTelegram()
     state_path = tmp_path / "state.json"
+    monkeypatch.setattr(
+        runner_module,
+        "load_sources",
+        lambda _: SourcesConfig(
+            version=1,
+            sources=[
+                SourceConfig(
+                    id="local-fixture",
+                    name="Local fixture",
+                    type="fixture",
+                    path="tests/fixtures/news.xml",
+                    companies=["SBER"],
+                    categories=["news"],
+                )
+            ],
+        ),
+    )
     first = run(root, telegram, state_path=state_path)
     second = run(root, telegram, state_path=state_path)
     assert len(telegram.messages) == 1
