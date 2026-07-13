@@ -1,12 +1,12 @@
 {
-  "schema_version": 3,
-  "last_successful_check": "2026-07-13T18:11:01.323126Z",
+  "schema_version": 4,
+  "last_successful_check": "2026-07-13T19:13:02.008052Z",
   "last_daily_summary_date": null,
   "last_weekly_health_report_date": null,
   "workflow_alert_sent": false,
-  "last_run_duration_seconds": 49.42197277799999,
-  "last_run_new_publications": 3,
-  "last_run_telegram_messages": 3,
+  "last_run_duration_seconds": 55.725689463,
+  "last_run_new_publications": 1,
+  "last_run_telegram_messages": 6,
   "last_run_errors": 5,
   "sent_items": [
     {
@@ -264,89 +264,105 @@
       "category": "financial_report",
       "importance": "medium",
       "dividend_status": null
+    },
+    {
+      "deduplication_id": "sha256:14485a98c1cb5d078fb274e732c0b83b7a9a9cba4a3d1dbca5807bc32d4796f6",
+      "company": "ПАО «Корпоративный центр ИКС 5»",
+      "title": "Все результаты",
+      "url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "published_at": "2026-07-13T19:13:12.047533Z",
+      "sent_at": "2026-07-13T19:13:02.008052Z",
+      "source_id": "x5-official-news",
+      "publication_id": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "source_url": "https://www.x5.ru/ru/investors/financial-and-operational-results",
+      "fingerprint": "sha256:14485a98c1cb5d078fb274e732c0b83b7a9a9cba4a3d1dbca5807bc32d4796f6",
+      "telegram_message_status": "sent",
+      "category": "financial_report",
+      "importance": "medium",
+      "dividend_status": null
     }
   ],
   "financial_reports": [],
   "source_status": {
     "local-fixture": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "last_successful_check": "2026-07-13T19:13:02.008052Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "moex-investor-relations-rss": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "last_successful_check": "2026-07-13T19:13:02.008052Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "rosseti-lenenergo-press": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "error",
       "error": "Temporary network error for https://rosseti-lenenergo.ru/press/",
       "last_successful_check": null,
-      "consecutive_errors": 2,
-      "failure_alert_sent": false
+      "consecutive_errors": 3,
+      "failure_alert_sent": true
     },
     "lukoil-official-news": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "last_successful_check": "2026-07-13T19:13:02.008052Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "x5-official-news": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "last_successful_check": "2026-07-13T19:13:02.008052Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "headhunter-official-news": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "ok",
       "error": null,
-      "last_successful_check": "2026-07-13T18:11:01.323126Z",
+      "last_successful_check": "2026-07-13T19:13:02.008052Z",
       "consecutive_errors": 0,
       "failure_alert_sent": false
     },
     "interrao-official-news": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "error",
       "error": "Temporary network error for https://www.interrao.ru/press-center/news/",
       "last_successful_check": null,
-      "consecutive_errors": 2,
-      "failure_alert_sent": false
+      "consecutive_errors": 3,
+      "failure_alert_sent": true
     },
     "transneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=636&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 2,
-      "failure_alert_sent": false
+      "consecutive_errors": 3,
+      "failure_alert_sent": true
     },
     "tatneft-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=118&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 2,
-      "failure_alert_sent": false
+      "consecutive_errors": 3,
+      "failure_alert_sent": true
     },
     "nmtp-edisclosure-reports": {
-      "last_checked_at": "2026-07-13T18:11:01.323126Z",
+      "last_checked_at": "2026-07-13T19:13:02.008052Z",
       "status": "error",
       "error": "Client error '403 Forbidden' for url 'https://www.e-disclosure.ru/portal/files.aspx?id=3900&type=5'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
       "last_successful_check": null,
-      "consecutive_errors": 2,
-      "failure_alert_sent": false
+      "consecutive_errors": 3,
+      "failure_alert_sent": true
     }
   }
 }
