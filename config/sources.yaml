@@ -1,0 +1,12 @@
+version: 1
+sources:
+  - id: local-fixture
+    name: Локальный тестовый RSS
+    type: fixture
+    enabled: true
+    path: tests/fixtures/news.xml
+    companies: [SBER]
+    categories: [news]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 0

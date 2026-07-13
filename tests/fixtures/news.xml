@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Local fixture</title>
+    <item>
+      <guid>fixture-001</guid>
+      <title>Сбербанк опубликовал сообщение</title>
+      <description>Компания сообщила важную информацию для инвесторов.</description>
+      <link>https://example.invalid/sberbank/fixture-001</link>
+      <pubDate>Mon, 13 Jul 2026 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

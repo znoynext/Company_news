@@ -1,0 +1,72 @@
+name: Dividend monitor
+
+on:
+  schedule:
+    # Every 30 minutes, offset from the start of the hour.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      send_test_message:
+        description: "Send a Telegram connection test message"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: dividend-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Run monitor
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND_TEST_MESSAGE: ${{ inputs.send_test_message || false }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        shell: bash
+        run: |
+          args=()
+          if [ "$SEND_TEST_MESSAGE" = "true" ]; then
+            args+=(--send-test-message --workflow-name "$WORKFLOW_NAME")
+          fi
+          python -m dividend_monitor.runner "${args[@]}"
+
+      - name: Check state changes
+        id: state
+        shell: bash
+        run: |
+          if git diff --quiet -- data/state.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit updated state
+        if: steps.state.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json
+          git commit -m "chore: update monitor state"
+          git push
