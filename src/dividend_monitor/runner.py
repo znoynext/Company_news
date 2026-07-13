@@ -8,6 +8,7 @@ import html
 import logging
 import os
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -351,6 +352,7 @@ def run(
     workflow_name: str = "Dividend monitor",
     run_statistics: RunStatistics | None = None,
 ) -> MonitorState:
+    started_at = time.perf_counter()
     companies_config = load_companies(root / companies_path)
     sources_config = load_sources(root / sources_path)
     companies = {company.ticker: company for company in companies_config.companies}
@@ -403,6 +405,11 @@ def run(
         statistics.sent,
         statistics.duplicates,
     )
+    print(f"Duration: {time.perf_counter() - started_at:.2f}s")
+    print(f"Sources: {statistics.sources_checked}")
+    print(f"New publications: {statistics.new_publications}")
+    print(f"Telegram messages: {statistics.sent + (1 if send_test_message else 0)}")
+    print(f"Errors: {statistics.errors}")
     return state
 
 

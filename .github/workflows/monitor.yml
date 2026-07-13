@@ -33,10 +33,9 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: python -m pip install -e .
 
       - name: Run monitor
         env:
@@ -50,7 +49,8 @@ jobs:
           if [ "$SEND_TEST_MESSAGE" = "true" ]; then
             args+=(--send-test-message --workflow-name "$WORKFLOW_NAME")
           fi
-          python -m dividend_monitor.runner "${args[@]}"
+          set -o pipefail
+          python -m dividend_monitor.runner "${args[@]}" 2>&1 | tee monitor-output.txt
 
       - name: Check state changes
         id: state
@@ -70,3 +70,10 @@ jobs:
           git add data/state.json
           git commit -m "chore: update monitor state"
           git push
+
+      - name: Print run metrics
+        if: always()
+        run: |
+          if [ -f monitor-output.txt ]; then
+            grep -E '^(Duration|Sources|New publications|Telegram messages|Errors):' monitor-output.txt || true
+          fi

@@ -6,6 +6,7 @@
 import argparse
 import html
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -85,6 +86,7 @@ def send_daily_summary(
     state_path: Path = Path("data/state.json"),
     now: datetime | None = None,
 ) -> bool:
+    started_at = time.perf_counter()
     storage = JsonStateStorage(root / state_path)
     state = storage.load()
     checked_at = (now or datetime.now(UTC)).astimezone(UTC)
@@ -93,11 +95,21 @@ def send_daily_summary(
     if message is None:
         LOGGER.info("Daily summary already sent for %s", checked_at.date())
         storage.save(state)
+        _print_run_metrics(started_at, telegram_messages=0)
         return False
     telegram.send_message(message)
     state.last_daily_summary_date = checked_at.date().isoformat()
     storage.save(state)
+    _print_run_metrics(started_at, telegram_messages=1)
     return True
+
+
+def _print_run_metrics(started_at: float, telegram_messages: int) -> None:
+    print(f"Duration: {time.perf_counter() - started_at:.2f}s")
+    print("Sources: 0")
+    print("New publications: 0")
+    print(f"Telegram messages: {telegram_messages}")
+    print("Errors: 0")
 
 
 def main() -> int:

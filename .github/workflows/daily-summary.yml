@@ -27,16 +27,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        run: python -m pip install -e .
 
       - name: Send daily summary
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m dividend_monitor.daily_summary
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m dividend_monitor.daily_summary 2>&1 | tee daily-summary-output.txt
 
       - name: Check state changes
         id: state
@@ -56,3 +58,10 @@ jobs:
           git add data/state.json
           git commit -m "chore: mark daily summary as sent"
           git push
+
+      - name: Print run metrics
+        if: always()
+        run: |
+          if [ -f daily-summary-output.txt ]; then
+            grep -E '^(Duration|Sources|New publications|Telegram messages|Errors):' daily-summary-output.txt || true
+          fi
