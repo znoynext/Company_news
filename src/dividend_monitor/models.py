@@ -135,6 +135,9 @@ class SentItem(StrictModel):
     url: str | None
     published_at: datetime
     sent_at: datetime
+    category: Category = "news"
+    importance: Importance = "medium"
+    dividend_status: DividendStatus | None = None
 
 
 class SourceStatus(StrictModel):

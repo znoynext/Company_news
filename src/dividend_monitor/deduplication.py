@@ -39,5 +39,10 @@ def mark_sent(publication: Publication, state: MonitorState, now: datetime | Non
             url=str(publication.url) if publication.url else None,
             published_at=publication.published_at,
             sent_at=sent_at,
+            category=publication.category,
+            importance=publication.importance,
+            dividend_status=(
+                publication.dividend_event.status if publication.dividend_event else None
+            ),
         )
     )
