@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>MOEX Investor Relations</title>
+    <item>
+      <guid>moex-fixture-001</guid>
+      <title>Moscow Exchange announces results for the first quarter</title>
+      <description>Investor relations publication with financial results.</description>
+      <link>https://www.moex.com/n12345</link>
+      <pubDate>Mon, 13 Jul 2026 09:45:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

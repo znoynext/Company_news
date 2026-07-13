@@ -11,6 +11,9 @@ from .config import load_companies, load_sources
 from .deduplication import is_new, mark_sent
 from .models import Company, MonitorState, Publication, SourceConfig, SourceStatus
 from .sources.base import FixtureSource, Source
+from .sources.lenenergo import LenenergoPressSource
+from .sources.moex import MoexRssSource
+from .sources.sber import SberOfficialHtmlSource
 from .storage import JsonStateStorage
 from .summarizer import summarize
 from .telegram import TelegramClient, TelegramConfigurationError
@@ -21,6 +24,15 @@ LOGGER = logging.getLogger(__name__)
 def _build_source(config: SourceConfig, companies: dict[str, Company], root: Path) -> Source:
     if config.type == "fixture":
         return FixtureSource(config, companies, root)
+    if len(config.companies) != 1:
+        raise ValueError(f"Source '{config.id}' must target exactly one company")
+    company = companies[config.companies[0]]
+    if config.id == "moex-investor-relations-rss":
+        return MoexRssSource(config, company)
+    if config.id == "rosseti-lenenergo-press":
+        return LenenergoPressSource(config, company)
+    if config.id == "sber-official-disclosure":
+        return SberOfficialHtmlSource(config, company)
     raise ValueError(f"Unsupported source type: {config.type}")
 
 

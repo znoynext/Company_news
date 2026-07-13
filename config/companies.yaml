@@ -1,3 +1,7 @@
 companies:
   - name: Сбербанк
     ticker: SBER
+  - name: Московская биржа
+    ticker: MOEX
+  - name: Россети Ленэнерго
+    ticker: LSNGP

@@ -1,13 +1,14 @@
 """Strict data models used by the monitor."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 Category = Literal["news", "financial_report", "dividend", "corporate"]
 Importance = Literal["low", "medium", "high"]
-SourceType = Literal["fixture", "rss"]
+SourceType = Literal["fixture", "rss", "official_html"]
+Reliability = Literal["high", "medium", "low"]
 
 
 class StrictModel(BaseModel):
@@ -43,6 +44,7 @@ class SourcesConfig(StrictModel):
 
 
 class Publication(StrictModel):
+    source_id: str = Field(min_length=1)
     company: str = Field(min_length=1)
     ticker: str = Field(min_length=1)
     category: Category
@@ -50,9 +52,11 @@ class Publication(StrictModel):
     description: str = ""
     published_at: datetime
     url: HttpUrl | None = None
-    source_id: str = Field(min_length=1)
     external_id: str | None = None
     importance: Importance = "medium"
+    discovered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    source_type: SourceType = "fixture"
+    reliability: Reliability = "low"
 
 
 class SentItem(StrictModel):

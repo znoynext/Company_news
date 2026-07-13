@@ -10,3 +10,33 @@ sources:
     primary: true
     timeout_seconds: 30
     max_retries: 0
+  - id: moex-investor-relations-rss
+    name: Московская биржа — Investor Relations RSS
+    type: rss
+    enabled: true
+    url: https://www.moex.com/export/news.aspx?cat=207
+    companies: [MOEX]
+    categories: [news, financial_report, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+  - id: rosseti-lenenergo-press
+    name: Россети Ленэнерго — официальный список новостей
+    type: official_html
+    enabled: true
+    url: https://rosseti-lenenergo.ru/press/
+    companies: [LSNGP]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
+  - id: sber-official-disclosure
+    name: Сбербанк — официальный раздел раскрытия информации
+    type: official_html
+    enabled: false
+    url: https://www.sberbank.com/ru/investor-relations/disclosure/
+    companies: [SBER]
+    categories: [news, financial_report, dividend, corporate]
+    primary: true
+    timeout_seconds: 30
+    max_retries: 2
