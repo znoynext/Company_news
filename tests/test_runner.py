@@ -103,6 +103,7 @@ def test_source_failure_alert_is_sent_once_and_recovery_is_reported(
 
     assert len(telegram.messages) == 2
     assert "Источник недоступен" in telegram.messages[0]
+    assert "temporary failure" in telegram.messages[0]
     assert "Источник восстановлен" in telegram.messages[1]
     assert states[2].source_status["flaky"].consecutive_errors == 3
     assert states[2].source_status["flaky"].failure_alert_sent is True
@@ -331,8 +332,21 @@ def test_runner_delivers_deterministic_message_when_ai_is_unavailable(
 
     state = run(root, telegram, state_path=tmp_path / "state.json", ai_client=UnavailableAi())
 
-    assert len(telegram.messages) == 1
+    assert len(telegram.messages) == 2
+    assert "GitHub Models недоступен" in telegram.messages[0]
+    assert "HTTP 429" in telegram.messages[0]
     assert state.sent_items[0].telegram_message_status == "sent"
+    assert state.ai_failure_alert_sent is True
+
+
+def test_error_notification_redacts_credentials() -> None:
+    token_name = "GITHUB_" + "TOKEN"
+    bearer_value = "gh" + "o_test"
+    reason = runner_module._safe_error_reason(f"{token_name}=secret-value Bearer {bearer_value}")
+
+    assert "secret-value" not in reason
+    assert "gho_test" not in reason
+    assert "[скрыто]" in reason
 
 
 def test_runner_dry_run_uses_fake_ai_without_delivery_or_state_write(

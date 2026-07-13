@@ -46,6 +46,12 @@ from .summarizer import summarize
 from .telegram import TelegramClient, TelegramConfigurationError
 
 LOGGER = logging.getLogger(__name__)
+_SENSITIVE_ERROR_VALUE = re.compile(
+    r"(?i)(?:github_pat_|ghp_|gho_|Bearer\s+|bot\d+:)[A-Za-z0-9_\-.:]+"
+)
+_SENSITIVE_ERROR_ASSIGNMENT = re.compile(
+    r"(?i)(?:GITHUB_TOKEN|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|API_KEY|SECRET|PASSWORD)=[^\s]+"
+)
 
 
 class DryRunTelegram:
@@ -417,10 +423,10 @@ def _enhance_new_publications(
     state: MonitorState,
     ai_client: GitHubModelsClient | FakeAIClient | object | None,
     checked_at: datetime,
-) -> tuple[list[Publication], GitHubModelsClient | FakeAIClient | object | None]:
+) -> tuple[list[Publication], GitHubModelsClient | FakeAIClient | object | None, str | None, bool]:
     """Use cache first, then enrich bounded batches without blocking delivery."""
     if ai_client is None or not publications:
-        return publications, ai_client
+        return publications, ai_client, None, False
 
     cache_key = getattr(ai_client, "cache_key", None)
     batch_size = getattr(ai_client, "batch_size", 1)
@@ -429,12 +435,12 @@ def _enhance_new_publications(
         # Compatibility with small test doubles and legacy providers.
         enhance_one = getattr(ai_client, "enhance", None)
         if not callable(enhance_one):
-            return publications, None
+            return publications, None, None, False
         try:
-            return [enhance_one(publication) for publication in publications], ai_client
+            return [enhance_one(publication) for publication in publications], ai_client, None, True
         except GitHubModelsUnavailable as exc:
             LOGGER.warning("GitHub Models disabled for this run: %s", exc)
-            return publications, None
+            return publications, None, _safe_error_reason(exc), True
 
     enhanced_by_id: dict[str, Publication] = {}
     pending: list[Publication] = []
@@ -457,7 +463,12 @@ def _enhance_new_publications(
             results = enhance_batch(batch)
         except GitHubModelsUnavailable as exc:
             LOGGER.warning("GitHub Models disabled for this run: %s", exc)
-            return [enhanced_by_id.get(fingerprint(item), item) for item in publications], None
+            return (
+                [enhanced_by_id.get(fingerprint(item), item) for item in publications],
+                None,
+                _safe_error_reason(exc),
+                True,
+            )
         for publication in batch:
             publication_id = fingerprint(publication)
             result = results.get(publication_id)
@@ -469,7 +480,7 @@ def _enhance_new_publications(
                 importance=result.importance,
                 created_at=checked_at,
             )
-    return [enhanced_by_id.get(fingerprint(item), item) for item in publications], ai_client
+    return [enhanced_by_id.get(fingerprint(item), item) for item in publications], ai_client, None, bool(pending)
 
 
 def run(
@@ -532,9 +543,21 @@ def run(
                     new_publications.append(_report_with_comparisons(publication, state))
                 else:
                     statistics.duplicates += 1
-            new_publications, ai_client = _enhance_new_publications(
+            new_publications, ai_client, ai_error, ai_attempted = _enhance_new_publications(
                 new_publications, state, ai_client, checked_at
             )
+            if ai_error:
+                state.ai_last_error = ai_error
+                if not dry_run and not state.ai_failure_alert_sent and _send_health_message(
+                    telegram, _ai_failure_message(ai_error)
+                ):
+                    state.ai_failure_alert_sent = True
+                    telegram_messages += 1
+            elif ai_attempted and state.ai_failure_alert_sent:
+                state.ai_failure_alert_sent = False
+                state.ai_last_error = None
+                if not dry_run and _send_health_message(telegram, _ai_recovery_message()):
+                    telegram_messages += 1
             for publication_to_send in new_publications:
                 if (
                     ai_filter_enabled
@@ -581,7 +604,7 @@ def run(
             current_status = SourceStatus(
                 last_checked_at=checked_at,
                 status="error",
-                error=str(exc),
+                error=_safe_error_reason(exc),
                 last_successful_check=(
                     previous_status.last_successful_check if previous_status else None
                 ),
@@ -591,7 +614,6 @@ def run(
             )
             if (
                 not dry_run
-                and current_status.consecutive_errors >= 3
                 and not current_status.failure_alert_sent
                 and _send_health_message(
                 telegram,
@@ -663,6 +685,34 @@ def _format_health_datetime(value: datetime | None) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _ai_failure_message(error: str) -> str:
+    return (
+        "⚠️ <b>GitHub Models недоступен</b>\n\n"
+        "AI-анализ отключён до конца этого запуска, а новости продолжат отправляться "
+        "в обычном формате.\n"
+        f"Причина: <code>{html.escape(error)}</code>"
+    )
+
+
+def _ai_recovery_message() -> str:
+    return "✅ <b>GitHub Models восстановлен</b>\n\nAI-анализ новостей снова доступен."
+
+
+def _run_failure_message(error: str) -> str:
+    return (
+        "🚨 <b>Запуск Dividend Monitor завершился с ошибкой</b>\n\n"
+        f"Причина: <code>{html.escape(error)}</code>"
+    )
+
+
+def _safe_error_reason(error: BaseException | str) -> str:
+    """Keep Telegram diagnostics useful without leaking credentials or long input text."""
+    reason = str(error)
+    reason = _SENSITIVE_ERROR_VALUE.sub("[скрыто]", reason)
+    reason = _SENSITIVE_ERROR_ASSIGNMENT.sub("[скрыто]", reason)
+    return _shorten(reason, 500)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run one dividend monitor check")
     parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -689,19 +739,27 @@ def main() -> int:
     try:
         ai_client = client_from_environment()
         ai_filter_enabled, ai_min_importance = filter_from_environment()
+        run(
+            args.root,
+            telegram,
+            send_test_message=args.send_test_message,
+            send_existing_item=args.send_existing_item,
+            workflow_name=args.workflow_name,
+            ai_client=ai_client,
+            dry_run=args.dry_run,
+            ai_filter_enabled=ai_filter_enabled,
+            ai_min_importance=ai_min_importance,
+        )
     except ValueError as exc:
+        if not args.dry_run:
+            _send_health_message(telegram, _run_failure_message(_safe_error_reason(exc)))
         parser.error(str(exc))
-    run(
-        args.root,
-        telegram,
-        send_test_message=args.send_test_message,
-        send_existing_item=args.send_existing_item,
-        workflow_name=args.workflow_name,
-        ai_client=ai_client,
-        dry_run=args.dry_run,
-        ai_filter_enabled=ai_filter_enabled,
-        ai_min_importance=ai_min_importance,
-    )
+    except Exception as exc:
+        safe_error = _safe_error_reason(exc)
+        LOGGER.exception("Dividend Monitor failed")
+        if not args.dry_run:
+            _send_health_message(telegram, _run_failure_message(safe_error))
+        return 1
     return 0
 
 

@@ -162,11 +162,13 @@ class SourceStatus(StrictModel):
 
 
 class MonitorState(StrictModel):
-    schema_version: int = 5
+    schema_version: int = 6
     last_successful_check: datetime | None = None
     last_daily_summary_date: str | None = None
     last_weekly_health_report_date: str | None = None
     workflow_alert_sent: bool = False
+    ai_failure_alert_sent: bool = False
+    ai_last_error: str | None = None
     last_run_duration_seconds: float | None = Field(default=None, ge=0)
     last_run_new_publications: int = Field(default=0, ge=0)
     last_run_telegram_messages: int = Field(default=0, ge=0)
