@@ -1,5 +1,8 @@
 """CLI and orchestration for one complete monitor run."""
 
+# Keep the notification templates readable despite escaped Russian literals.
+# ruff: noqa: E501
+
 import argparse
 import html
 import logging
@@ -12,6 +15,7 @@ from . import __version__
 from .calculations import calculate_comparisons
 from .config import load_companies, load_sources
 from .deduplication import is_new, mark_sent
+from .dividends import classify_dividend_event
 from .financial_reports import detect_report_context
 from .models import Company, MonitorState, Publication, RunStatistics, SourceConfig, SourceStatus
 from .sources.base import FixtureSource, Source
@@ -63,6 +67,13 @@ _METRIC_LABELS = {
     "capital_expenditures": "Капитальные расходы",
 }
 
+_DIVIDEND_STATUS_LABELS = {
+    "recommended": "рекомендованы",
+    "approved": "утверждены",
+    "cancelled": "отменены",
+    "paid": "выплачены",
+}
+
 
 def _format_report_details(publication: Publication) -> str:
     if publication.category != "financial_report":
@@ -98,6 +109,46 @@ def _format_report_details(publication: Publication) -> str:
         if lines:
             details.append("<b>Изменение:</b>\n" + "\n".join(lines))
     return "\n\n".join(details)
+
+
+def _format_dividend_message(publication: Publication) -> str:
+    event = publication.dividend_event
+    if event is None:
+        return format_message(publication)
+    amount = (
+        f"{format(event.amount_per_share, 'f').rstrip('0').rstrip('.') or '0'} "
+        f"{_escape(event.currency, 20)} на акцию"
+        if event.amount_per_share is not None
+        else "не указано"
+    )
+    period = _escape(event.period or "не указано", 120)
+    register_date = (
+        event.register_close_date.astimezone(UTC).strftime("%Y-%m-%d")
+        if event.register_close_date
+        else "не указана"
+    )
+    message = (
+        f"<b>💰 {_escape(publication.company, 150)} — дивиденды</b>\n\n"
+        f"<b>Статус:</b>\n{_DIVIDEND_STATUS_LABELS[event.status]}\n\n"
+        f"<b>Размер:</b>\n{amount}\n\n"
+        f"<b>Период:</b>\n{period}\n\n"
+        f"<b>Дата закрытия реестра:</b>\n{register_date}\n\n"
+        f"<b>Тип акции:</b>\n{event.share_type}\n\n"
+        f"<b>Источник:</b>\n{_escape(str(event.source_url), 800)}"
+    )
+    if publication.ticker == "LSNGP":
+        details = []
+        if event.rasbu_net_profit:
+            details.append(f"Чистая прибыль по РСБУ: {_escape(event.rasbu_net_profit, 300)}")
+        if event.dividend_base:
+            details.append(f"Дивидендная база: {_escape(event.dividend_base, 300)}")
+        if event.preferred_share_payment:
+            details.append(
+                f"Привилегированные акции: {_escape(event.preferred_share_payment, 300)}"
+            )
+        if details:
+            message += "\n\n<b>LSNGP:</b>\n" + "\n".join(details)
+    return message
 
 
 def _report_with_comparisons(publication: Publication, state: MonitorState) -> Publication:
@@ -142,6 +193,16 @@ def _report_with_comparisons(publication: Publication, state: MonitorState) -> P
 
 
 def _enrich_report_context(publication: Publication) -> Publication:
+    if publication.url and not publication.dividend_event:
+        dividend_event = classify_dividend_event(
+            f"{publication.title} {publication.description}",
+            publication.url,
+            publication.ticker,
+        )
+        if dividend_event:
+            publication = publication.model_copy(
+                update={"category": "dividend", "dividend_event": dividend_event}
+            )
     if publication.category != "financial_report":
         return publication
     period, period_kind, standard = detect_report_context(
@@ -193,7 +254,59 @@ def _build_source(config: SourceConfig, companies: dict[str, Company], root: Pat
     raise ValueError(f"Unsupported source type: {config.type}")
 
 
+def _format_dividend_message_v2(publication: Publication) -> str:
+    event = publication.dividend_event
+    if event is None:
+        return ""
+    labels = {
+        "recommended": "\u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u043e\u0432\u0430\u043d\u044b",
+        "approved": "\u0443\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u044b",
+        "cancelled": "\u043e\u0442\u043c\u0435\u043d\u0435\u043d\u044b",
+        "paid": "\u0432\u044b\u043f\u043b\u0430\u0447\u0435\u043d\u044b",
+    }
+    amount = (
+        f"{format(event.amount_per_share, 'f').rstrip('0').rstrip('.') or '0'} "
+        f"\u20bd \u043d\u0430 \u0430\u043a\u0446\u0438\u044e"
+        if event.amount_per_share is not None
+        else "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u043e"
+    )
+    register_date = (
+        event.register_close_date.astimezone(UTC).strftime("%Y-%m-%d")
+        if event.register_close_date
+        else "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u0430"
+    )
+    period = _escape(event.period or "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d", 120)
+    meeting_date = (
+        event.general_meeting_date.astimezone(UTC).strftime("%Y-%m-%d")
+        if event.general_meeting_date
+        else "\u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d\u0430"
+    )
+    message = (
+        f"<b>\U0001f4b0 {_escape(publication.company, 150)} \u2014 \u0434\u0438\u0432\u0438\u0434\u0435\u043d\u0434\u044b</b>\n\n"
+        f"<b>\u0421\u0442\u0430\u0442\u0443\u0441:</b>\n{labels[event.status]}\n\n"
+        f"<b>\u0420\u0430\u0437\u043c\u0435\u0440:</b>\n{amount}\n\n"
+        f"<b>\u041f\u0435\u0440\u0438\u043e\u0434:</b>\n{period}\n\n"
+        f"<b>\u0414\u0430\u0442\u0430 \u043e\u0431\u0449\u0435\u0433\u043e \u0441\u043e\u0431\u0440\u0430\u043d\u0438\u044f:</b>\n{meeting_date}\n\n"
+        f"<b>\u0414\u0430\u0442\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f \u0440\u0435\u0435\u0441\u0442\u0440\u0430:</b>\n{register_date}\n\n"
+        f"<b>\u0422\u0438\u043f \u0430\u043a\u0446\u0438\u0438:</b>\n{event.share_type}\n\n"
+        f"<b>\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a:</b>\n{_escape(str(event.source_url), 800)}"
+    )
+    if publication.ticker == "LSNGP":
+        details = []
+        if event.rasbu_net_profit:
+            details.append(f"\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c \u043f\u043e \u0420\u0421\u0411\u0423: {_escape(event.rasbu_net_profit, 300)}")
+        if event.dividend_base:
+            details.append(f"\u0414\u0438\u0432\u0438\u0434\u0435\u043d\u0434\u043d\u0430\u044f \u0431\u0430\u0437\u0430: {_escape(event.dividend_base, 300)}")
+        if event.preferred_share_payment:
+            details.append(f"\u041f\u0440\u0438\u0432\u0438\u043b\u0435\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0435 \u0430\u043a\u0446\u0438\u0438: {_escape(event.preferred_share_payment, 300)}")
+        if details:
+            message += "\n\n<b>LSNGP:</b>\n" + "\n".join(details)
+    return message
+
+
 def format_message(publication: Publication) -> str:
+    if publication.dividend_event:
+        return _format_dividend_message_v2(publication)
     description = summarize(publication.description, max_length=500) or "Описание отсутствует."
     importance = _IMPORTANCE_LABELS[publication.importance]
     report_details = _format_report_details(publication)

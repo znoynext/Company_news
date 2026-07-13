@@ -22,6 +22,17 @@ MetricName = Literal[
     "net_debt",
     "capital_expenditures",
 ]
+DividendStatus = Literal["recommended", "approved", "cancelled", "paid"]
+DividendEventType = Literal[
+    "recommendation",
+    "approval",
+    "cancellation",
+    "policy_change",
+    "meeting",
+    "record_date",
+    "payment",
+]
+ShareType = Literal["ordinary", "preferred", "unspecified"]
 
 
 class StrictModel(BaseModel):
@@ -51,6 +62,24 @@ class FinancialComparison(StrictModel):
     change_percent: Decimal | None = None
     comparison_period: str = Field(min_length=1)
     comparison_kind: Literal["yoy", "qoq"]
+
+
+class DividendEvent(StrictModel):
+    status: DividendStatus
+    event_type: DividendEventType
+    amount_per_share: Decimal | None = None
+    currency: str = "RUB"
+    share_type: ShareType = "unspecified"
+    period: str | None = None
+    general_meeting_date: datetime | None = None
+    register_close_date: datetime | None = None
+    policy_change: str | None = None
+    board_recommendation: str | None = None
+    shareholder_decision: str | None = None
+    rasbu_net_profit: str | None = None
+    dividend_base: str | None = None
+    preferred_share_payment: str | None = None
+    source_url: HttpUrl
 
 
 class CompaniesConfig(StrictModel):
@@ -96,6 +125,7 @@ class Publication(StrictModel):
     report_standard: ReportStandard | None = None
     report_metrics: list[FinancialMetric] = Field(default_factory=list)
     report_comparisons: list[FinancialComparison] = Field(default_factory=list)
+    dividend_event: DividendEvent | None = None
 
 
 class SentItem(StrictModel):
