@@ -17,7 +17,7 @@ from .calculations import calculate_comparisons
 from .config import load_companies, load_sources
 from .deduplication import cleanup_old_state, fingerprint, is_new, mark_sent
 from .dividends import classify_dividend_event
-from .financial_reports import detect_report_context
+from .financial_reports import detect_report_context, extract_explicit_text_metrics
 from .github_models import (
     FakeAIClient,
     GitHubModelsClient,
@@ -71,6 +71,15 @@ _IMPORTANCE_LABELS = {
 }
 _IMPORTANCE_RANK = {"low": 0, "medium": 1, "high": 2}
 _CURRENCY_SYMBOLS = {"RUB": "₽", "USD": "$", "EUR": "€", "CNY": "¥"}
+_REPORT_LABELS = {
+    "revenue": "Выручка",
+    "operating_profit": "Опер. прибыль",
+    "ebitda": "EBITDA",
+    "net_profit": "Чистая прибыль",
+    "free_cash_flow": "Свободный денежный поток",
+    "net_debt": "Чистый долг",
+    "capital_expenditures": "Капзатраты",
+}
 
 
 def _shorten(text: str, max_length: int) -> str:
@@ -151,6 +160,50 @@ def _format_report_details(publication: Publication) -> str:
         if lines:
             details.append("<b>Изменение:</b>\n" + "\n".join(lines))
     return "\n\n".join(details)
+
+
+def _format_report_message(publication: Publication) -> str:
+    """Format verified report metrics and comparisons without document-format noise."""
+    period = publication.report_period or "период не указан"
+    standard = f" · {publication.report_standard}" if publication.report_standard else ""
+    lines = [
+        f"<b>📊 {_escape(publication.company, 150)} — отчёт</b>",
+        f"<b>{_escape(period, 80)}{_escape(standard, 40)}</b>",
+        _escape(publication.title, 500),
+    ]
+    if publication.ai_summary:
+        lines.append(_escape(publication.ai_summary, 500))
+    if publication.report_metrics:
+        metrics = []
+        for metric in publication.report_metrics[:6]:
+            value = format(metric.value, "f").rstrip("0").rstrip(".") or "0"
+            metrics.append(
+                f"• <b>{_REPORT_LABELS[metric.name]}:</b> "
+                f"{_escape(value, 80)} {_escape(metric.currency, 20)} "
+                f"{_escape(metric.unit, 40)}"
+            )
+        lines.append("<b>Ключевые показатели</b>\n" + "\n".join(metrics))
+    else:
+        lines.append("<i>Проверенные числовые показатели пока не извлечены из источника.</i>")
+    changes = []
+    for comparison in publication.report_comparisons[:6]:
+        if comparison.change_percent is None:
+            continue
+        direction = (
+            "↑" if comparison.change_percent > 0 else "↓" if comparison.change_percent < 0 else "→"
+        )
+        basis = "год к году" if comparison.comparison_kind == "yoy" else "квартал к кварталу"
+        percent = format(abs(comparison.change_percent), ".1f")
+        delta = format(abs(comparison.delta), "f").rstrip("0").rstrip(".") or "0"
+        changes.append(
+            f"• {_REPORT_LABELS[comparison.name]}: {direction} {percent}% "
+            f"({basis}; {delta} {comparison.current.currency})"
+        )
+    if changes:
+        lines.append("<b>Динамика</b>\n" + "\n".join(changes))
+    if publication.url:
+        lines.append(f'<a href="{_escape(str(publication.url), 800)}">Официальный источник</a>')
+    return "\n\n".join(lines)
 
 
 def _format_dividend_message(publication: Publication) -> str:
@@ -257,6 +310,17 @@ def _enrich_report_context(publication: Publication) -> Publication:
         updates["report_period_kind"] = period_kind
     if not publication.report_standard:
         updates["report_standard"] = standard
+    report_period = updates.get("report_period", publication.report_period)
+    report_standard = updates.get("report_standard", publication.report_standard)
+    if not publication.report_metrics and publication.url:
+        metrics = extract_explicit_text_metrics(
+            f"{publication.title} {publication.description}",
+            publication.url,
+            period=report_period,
+            standard=report_standard,
+        )
+        if metrics:
+            updates["report_metrics"] = metrics
     return publication.model_copy(update=updates) if updates else publication
 
 
@@ -354,6 +418,8 @@ def _format_dividend_message_v2(publication: Publication) -> str:
 def format_message(publication: Publication) -> str:
     if publication.dividend_event:
         return _format_dividend_message_v2(publication)
+    if publication.category == "financial_report":
+        return _format_report_message(publication)
     description = publication.ai_summary or summarize(publication.description, max_length=500)
     description = description or "Описание отсутствует."
     importance = _IMPORTANCE_LABELS[publication.importance]

@@ -234,6 +234,87 @@ def extract_structured_metrics(content: str, source_url: HttpUrl) -> list[Financ
     return [metric for row in normalized_rows if (metric := _build_metric(row, source_url))]
 
 
+def extract_explicit_text_metrics(
+    content: str,
+    source_url: HttpUrl,
+    *,
+    period: str | None,
+    standard: ReportStandard | None,
+) -> list[FinancialMetric]:
+    """Extract explicit monetary facts from an official report announcement.
+
+    A number is accepted only when the announcement states the metric name,
+    amount, scale, currency, report period, and accounting standard.  This
+    deliberately excludes percentages and AI-generated interpretations.
+    """
+    if not period or not standard:
+        return []
+    text = BeautifulSoup(content, "html.parser").get_text(" ", strip=True)
+    text = re.sub(r"\s+", " ", text)
+    currency_map = {
+        "rub": "RUB",
+        "рублей": "RUB",
+        "рубля": "RUB",
+        "руб": "RUB",
+        "руб.": "RUB",
+        "usd": "USD",
+        "долл": "USD",
+        "eur": "EUR",
+        "евро": "EUR",
+        "cny": "CNY",
+        "юан": "CNY",
+    }
+    unit_map = {
+        "млрд": "млрд",
+        "миллиард": "млрд",
+        "млн": "млн",
+        "миллион": "млн",
+        "тыс": "тыс.",
+        "тысяч": "тыс.",
+        "bln": "млрд",
+        "billion": "bn",
+        "million": "mn",
+        "thousand": "thousand",
+    }
+    currency_pattern = "|".join(
+        re.escape(value) for value in sorted(currency_map, key=len, reverse=True)
+    )
+    unit_pattern = "|".join(re.escape(value) for value in sorted(unit_map, key=len, reverse=True))
+    metrics: list[FinancialMetric] = []
+    for name, aliases in _METRIC_ALIASES.items():
+        alias_pattern = "|".join(re.escape(value) for value in aliases)
+        pattern = re.compile(
+            rf"(?:{alias_pattern}).{{0,80}}?"
+            rf"(?P<value>[-+]?\d[\d\s\u00a0]*(?:[.,]\d+)?)\s*"
+            rf"(?P<unit>{unit_pattern})\.?\s*(?P<currency>{currency_pattern})\b",
+            re.IGNORECASE,
+        )
+        match = pattern.search(text)
+        if match is None:
+            continue
+        value = _decimal(match.group("value"))
+        if value is None:
+            continue
+        unit_key = match.group("unit").casefold().rstrip(".")
+        currency_key = match.group("currency").casefold().rstrip(".")
+        unit = unit_map.get(unit_key)
+        currency = currency_map.get(currency_key)
+        if not unit or not currency:
+            continue
+        metrics.append(
+            FinancialMetric(
+                name=name,
+                value=value,
+                currency=currency,
+                unit=unit,
+                period=period,
+                standard=standard,
+                source_url=source_url,
+            )
+        )
+    return metrics
+
+
 def _safe_xml_candidate(content: str) -> bool:
     """Reject DTD/entity-bearing or oversized external XML before parsing it."""
     normalized = content.lstrip().upper()

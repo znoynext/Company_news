@@ -51,15 +51,46 @@ def fingerprint(publication: Publication) -> str:
     published_at = publication.published_at
     if published_at.tzinfo is None:
         published_at = published_at.replace(tzinfo=UTC)
-    if publication.external_id:
-        raw = f"{publication.source_id.strip()}:id:{publication.external_id.strip()}"
-    elif publication.url:
-        raw = f"url:{normalize_url(str(publication.url))}"
+    return _identity_hash(
+        source_id=publication.source_id,
+        external_id=publication.external_id,
+        url=str(publication.url) if publication.url else None,
+        ticker=publication.ticker,
+        title=publication.title,
+        published_at=published_at,
+    )
+
+
+def sent_item_identity(item: SentItem) -> str:
+    """Rebuild v2 identity for history created before the identity migration."""
+    return _identity_hash(
+        source_id=item.source_id,
+        external_id=item.publication_id,
+        url=item.source_url or item.url,
+        ticker="",
+        title=item.title,
+        published_at=item.published_at,
+    )
+
+
+def _identity_hash(
+    *,
+    source_id: str,
+    external_id: str | None,
+    url: str | None,
+    ticker: str,
+    title: str,
+    published_at: datetime,
+) -> str:
+    if external_id:
+        raw = f"{source_id.strip()}:id:{external_id.strip()}"
+    elif url:
+        raw = f"url:{normalize_url(url)}"
     else:
         raw = ":".join(
             (
-                publication.ticker.strip().upper(),
-                _normalized_title(publication.title),
+                ticker.strip().upper(),
+                _normalized_title(title),
                 published_at.astimezone(UTC).date().isoformat(),
             )
         )

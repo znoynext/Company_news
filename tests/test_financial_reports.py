@@ -2,9 +2,18 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from dividend_monitor.calculations import calculate_comparisons
-from dividend_monitor.financial_reports import detect_report_context, extract_structured_metrics
+from dividend_monitor.financial_reports import (
+    detect_report_context,
+    extract_explicit_text_metrics,
+    extract_structured_metrics,
+)
 from dividend_monitor.models import FinancialMetric, MonitorState, Publication
-from dividend_monitor.runner import _remember_report, _report_with_comparisons, format_message
+from dividend_monitor.runner import (
+    _enrich_report_context,
+    _remember_report,
+    _report_with_comparisons,
+    format_message,
+)
 
 SOURCE_URL = "https://example.com/report"
 
@@ -54,6 +63,47 @@ def test_structured_html_table_is_supported_but_pdf_is_not() -> None:
     )
     assert extract_structured_metrics(xml, SOURCE_URL)[0].name == "net_profit"
     assert extract_structured_metrics("%PDF-1.7", SOURCE_URL) == []
+
+
+def test_explicit_text_metrics_require_period_standard_scale_and_currency() -> None:
+    metrics = extract_explicit_text_metrics(
+        "Results under IFRS for 2026: revenue amounted to 125.5 bln RUB. "
+        "Net profit was 25 bln RUB.",
+        SOURCE_URL,
+        period="2026 FY",
+        standard="МСФО",
+    )
+
+    assert [(metric.name, metric.value, metric.currency, metric.unit) for metric in metrics] == [
+        ("revenue", Decimal("125.5"), "RUB", "млрд"),
+        ("net_profit", Decimal("25"), "RUB", "млрд"),
+    ]
+    assert (
+        extract_explicit_text_metrics(
+            "Revenue grew by 25%.", SOURCE_URL, period="2026 FY", standard="МСФО"
+        )
+        == []
+    )
+
+
+def test_report_enrichment_extracts_explicit_official_metric_for_yoy() -> None:
+    publication = Publication(
+        source_id="official",
+        company="Компания",
+        ticker="TEST",
+        category="financial_report",
+        title="IFRS results for 2026",
+        description="Revenue amounted to 125 bln RUB for FY 2026 under IFRS.",
+        published_at=datetime(2026, 7, 13, tzinfo=UTC),
+        url=SOURCE_URL,
+    )
+
+    enriched = _enrich_report_context(publication)
+
+    assert enriched.report_period == "2026 FY"
+    assert enriched.report_standard == "МСФО"
+    assert enriched.report_metrics[0].name == "revenue"
+    assert enriched.report_metrics[0].value == Decimal("125")
 
 
 def _metric(name: str, value: str, period: str) -> FinancialMetric:
@@ -112,7 +162,8 @@ def test_financial_report_without_safe_metrics_uses_fallback_text() -> None:
         )
     )
 
-    assert "Показатели автоматически не извлечены." in message
+    assert "Проверенные числовые показатели пока не извлечены" in message
+    assert "PDF" not in message
     assert SOURCE_URL in message
 
 
@@ -148,3 +199,30 @@ def test_runner_uses_saved_prior_report_for_yoy_comparison() -> None:
     assert len(result.report_comparisons) == 1
     assert result.report_comparisons[0].comparison_kind == "yoy"
     assert result.report_comparisons[0].change_percent == Decimal("25")
+
+
+def test_financial_report_message_shows_metrics_and_yoy_without_document_noise() -> None:
+    previous = _metric("revenue", "100", "2025 FY")
+    current = _metric("revenue", "125", "2026 FY")
+    publication = Publication(
+        source_id="reports",
+        company="Компания",
+        ticker="TEST",
+        category="financial_report",
+        title="Результаты за 2026 год",
+        description="",
+        published_at=datetime(2026, 7, 13, tzinfo=UTC),
+        url=SOURCE_URL,
+        report_period="2026 FY",
+        report_standard="МСФО",
+        report_metrics=[current],
+        report_comparisons=calculate_comparisons([current], [previous], "year"),
+    )
+
+    message = format_message(publication)
+
+    assert "Ключевые показатели" in message
+    assert "Выручка:</b> 125 RUB" in message
+    assert "Динамика" in message
+    assert "↑ 25.0% (год к году; 25 RUB)" in message
+    assert "PDF" not in message

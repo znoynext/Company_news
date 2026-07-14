@@ -6,6 +6,7 @@ from dividend_monitor.deduplication import (
     is_new,
     mark_sent,
     normalize_url,
+    sent_item_identity,
 )
 from dividend_monitor.models import MonitorState, Publication, SentItem
 
@@ -43,6 +44,22 @@ def test_external_id_identity_ignores_title_and_time_changes() -> None:
     mark_sent(first, state)
 
     assert not is_new(changed, state)
+
+
+def test_legacy_saved_item_rebuilds_the_same_v2_identity() -> None:
+    current = publication()
+    saved = SentItem(
+        deduplication_id="legacy",
+        company=current.company,
+        title=current.title,
+        url=str(current.url),
+        source_id=current.source_id,
+        publication_id=current.external_id,
+        published_at=current.published_at,
+        sent_at=current.published_at,
+    )
+
+    assert sent_item_identity(saved) == deduplication_id(current)
 
 
 def test_normalize_url_removes_tracking_and_preserves_meaningful_query() -> None:

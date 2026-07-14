@@ -118,6 +118,47 @@ def test_official_news_adapter_requires_a_nearby_date(monkeypatch) -> None:
     assert item.category == "financial_report"
 
 
+def test_official_news_adapter_loads_financial_report_article_body(monkeypatch) -> None:
+    from dividend_monitor.sources import official_news
+
+    class ReportClient:
+        def get(self, url: str) -> FixtureResponse:
+            response = FixtureResponse(Path("tests/fixtures/official_news.html"))
+            if url.endswith("/news/first"):
+                response.text = "<article>IFRS FY 2026. Revenue amounted to 125 bln RUB.</article>"
+            return response
+
+    @contextmanager
+    def fake_client(*args, **kwargs) -> Iterator[ReportClient]:
+        yield ReportClient()
+
+    monkeypatch.setattr(official_news, "source_http_client", fake_client)
+    source = OfficialNewsListSource(
+        source_config("official", "official_html", ["news", "financial_report"]),
+        Company(name="Тест", ticker="TEST"),
+    )
+
+    item = source.fetch()[0]
+
+    assert "Revenue amounted to 125 bln RUB" in item.description
+
+
+def test_official_news_adapter_rejects_x5_all_results_navigation(monkeypatch) -> None:
+    from dividend_monitor.sources import official_news
+
+    response = FixtureResponse(Path("tests/fixtures/official_news.html"))
+    response.text = (
+        '<article><a href="/ru/investors/results">Все результаты</a> 13.07.2026</article>'
+    )
+    patch_http_client(monkeypatch, official_news, response)
+    source = OfficialNewsListSource(
+        source_config("x5-official-news", "official_html", ["news"]),
+        Company(name="Тест", ticker="TEST"),
+    )
+
+    assert source.fetch() == []
+
+
 def test_moex_companies_adapter_filters_unrequested_issuers(monkeypatch) -> None:
     from dividend_monitor.sources import moex_companies
 

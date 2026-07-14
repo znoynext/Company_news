@@ -6,7 +6,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from .models import MonitorState
+from .deduplication import sent_item_identity
+from .models import MonitorState, SentItem
 
 CURRENT_SCHEMA_VERSION = 7
 
@@ -23,6 +24,10 @@ def migrate_v6_to_v7(payload: dict[str, Any]) -> dict[str, Any]:
             identifier = item.get("fingerprint") or item.get("deduplication_id")
             if isinstance(identifier, str):
                 identity_index.add(identifier)
+            try:
+                identity_index.add(sent_item_identity(SentItem.model_validate(item)))
+            except ValueError:
+                continue
     for status in payload.get("source_status", {}).values():
         if isinstance(status, dict) and status.get("status") == "error":
             status["status"] = "failed"
@@ -121,6 +126,7 @@ class JsonStateStorage:
             state.identity_index.update(
                 item.fingerprint or item.deduplication_id for item in state.sent_items
             )
+            state.identity_index.update(sent_item_identity(item) for item in state.sent_items)
             return state
         except UnsupportedStateVersion:
             raise
