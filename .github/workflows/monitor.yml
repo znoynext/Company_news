@@ -2,8 +2,8 @@ name: Dividend monitor
 
 on:
   schedule:
-    # Once every hour, offset from the start of the hour.
-    - cron: "7 * * * *"
+    # Once every two hours, offset from the start of the even UTC hours.
+    - cron: "7 */2 * * *"
   workflow_dispatch:
     inputs:
       send_test_message:
