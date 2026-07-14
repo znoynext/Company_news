@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "last_successful_check": "2026-07-14T09:15:04.784561Z",
-  "last_daily_summary_date": null,
+  "last_daily_summary_date": "2026-07-14",
   "last_weekly_health_report_date": null,
   "workflow_alert_sent": false,
   "ai_failure_alert_sent": false,
