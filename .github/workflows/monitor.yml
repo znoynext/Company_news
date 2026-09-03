@@ -37,6 +37,8 @@ permissions:
 
 jobs:
   monitor:
+    # Telegram delivery is temporarily paused by the repository owner.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
